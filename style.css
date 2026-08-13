@@ -1,28 +1,22 @@
-/* --- RESET & FULLSCREEN LANDSCAPE LOCK --- */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
     user-select: none;
     -webkit-user-select: none;
-    -webkit-touch-callout: none;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 html, body {
     width: 100vw;
     height: 100vh;
-    height: -webkit-fill-available; /* Mobile Safari fix */
     overflow: hidden;
     position: fixed;
     background-color: #050811;
     color: #ffffff;
 }
 
-/* Visibility Control */
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
 .screen {
     position: absolute;
@@ -30,77 +24,32 @@ html, body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }
 
-/* --- BUTTONS & INPUTS --- */
+/* BUTTONS & UI */
 .btn {
-    padding: 8px 16px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-weight: bold;
-    font-size: 0.85rem;
     cursor: pointer;
-    transition: transform 0.1s ease;
 }
 
-.btn:active {
-    transform: scale(0.95);
-}
+.primary-btn { background: linear-gradient(135deg, #0284c7, #2563eb); color: #fff; }
+.secondary { background: #334155; color: #fff; }
 
-.primary-btn {
-    background: linear-gradient(135deg, #0284c7, #2563eb);
-    color: #fff;
-}
-
-.secondary {
-    background: #334155;
-    color: #f8fafc;
-}
-
-.danger {
-    background: #991b1b;
-    color: #fff;
-}
-
-input {
-    width: 100%;
-    padding: 8px 12px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    color: #fff;
-    font-size: 0.85rem;
-}
-
-/* --- 1. LOADING SCREEN --- */
+/* LOADING SCREEN */
 #loading-screen {
     justify-content: center;
     align-items: center;
-    background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+    background: #050b14;
 }
 
-.loading-container {
-    text-align: center;
-    width: 60%;
-    max-width: 400px;
-}
-
-.game-title {
-    font-size: 2.2rem;
-    letter-spacing: 4px;
-    color: #38bdf8;
-}
-
-.game-subtitle {
-    font-size: 0.75rem;
-    letter-spacing: 4px;
-    color: #94a3b8;
-    margin-bottom: 15px;
-}
+.loading-container { text-align: center; width: 60%; }
+.game-title { font-size: 2.5rem; letter-spacing: 4px; color: #38bdf8; }
+.game-subtitle { font-size: 0.8rem; letter-spacing: 3px; color: #94a3b8; margin-bottom: 15px; }
 
 .progress-bar-container {
     width: 100%;
@@ -111,82 +60,19 @@ input {
     margin-bottom: 8px;
 }
 
-#loading-bar {
-    width: 0%;
-    height: 100%;
-    background: #38bdf8;
-    transition: width 0.1s linear;
-}
+#loading-bar { width: 0%; height: 100%; background: #38bdf8; transition: width 0.1s linear; }
 
-#loading-text {
-    font-size: 0.75rem;
-}
-
-/* --- 2. AUTH SCREEN --- */
-#auth-screen {
-    justify-content: center;
-    align-items: center;
-    background: #090d16;
-}
-
-.auth-card {
-    background: #1e293b;
-    padding: 15px 25px;
-    border-radius: 12px;
-    width: 80%;
-    max-width: 360px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    text-align: center;
-}
-
-.auth-card h2 {
-    font-size: 1.1rem;
-    margin-bottom: 12px;
-    letter-spacing: 2px;
-}
-
-.auth-toggle {
-    margin-top: 8px;
-    font-size: 0.75rem;
-    color: #94a3b8;
-}
-
-.auth-toggle span {
-    color: #38bdf8;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-/* --- 3. HOME SCREEN --- */
+/* HOME SCREEN */
 #home-screen {
     justify-content: space-between;
-    background: radial-gradient(circle, #1e293b 0%, #090d16 100%);
+    background: radial-gradient(circle, #0f172a 0%, #050b14 100%);
 }
 
 .top-bar {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    background: rgba(15, 23, 42, 0.85);
-    height: 45px;
-}
-
-.icon-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1.5rem;
-    cursor: pointer;
-}
-
-.user-info {
-    font-size: 0.9rem;
-    font-weight: bold;
-}
-
-.currency-display {
-    font-size: 0.85rem;
+    padding: 12px 24px;
+    background: rgba(15, 23, 42, 0.8);
 }
 
 .home-content {
@@ -200,145 +86,95 @@ input {
 .character-preview {
     display: flex;
     align-items: center;
-    gap: 25px;
-    margin-bottom: 15px;
-    text-align: center;
+    gap: 30px;
+    margin-bottom: 20px;
 }
 
 .nav-arrow {
     background: #334155;
     border: none;
     color: #fff;
-    font-size: 1.2rem;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+    font-size: 1.2rem;
     cursor: pointer;
 }
 
-.char-details h2 {
-    font-size: 1.4rem;
-    color: #38bdf8;
-}
-
-.char-details p {
-    font-size: 0.8rem;
-    color: #94a3b8;
-}
+.char-details h2 { color: #38bdf8; font-size: 1.6rem; }
+.char-details p { color: #94a3b8; font-size: 0.85rem; max-width: 300px; }
 
 .play-btn {
-    font-size: 1rem;
-    padding: 10px 30px;
+    font-size: 1.1rem;
+    padding: 12px 35px;
     background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
 }
 
-/* --- 4. GAME SCREEN & HUD --- */
-#game-screen {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-}
-
+/* GAME SCREEN HUD */
 #game-hud {
     position: absolute;
-    top: 8px;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 15px;
-    z-index: 10;
-}
-
-.hud-player {
-    width: 30%;
-}
-
-.player-label {
-    font-size: 0.7rem;
-    font-weight: bold;
-}
-
-.hp-bar-bg {
-    width: 100%;
-    height: 12px;
-    background: #334155;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid #475569;
-}
-
-.hp-bar {
-    width: 100%;
-    height: 100%;
-    background: #22c55e;
-    transition: width 0.2s ease;
-}
-
-#round-indicator {
-    font-size: 0.85rem;
-    font-weight: bold;
-    letter-spacing: 2px;
-    background: rgba(15, 23, 42, 0.7);
-    padding: 4px 10px;
-    border-radius: 4px;
-}
-
-.round-dots {
-    display: flex;
-    gap: 4px;
-    margin-top: 2px;
-}
-
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #475569;
-}
-
-.dot.won {
-    background: #eab308;
-}
-
-/* Three.js Render Canvas Container */
-#game-canvas-container {
-    width: 100vw;
-    height: 100vh;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-}
-
-#game-canvas-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-
-/* Touch Controls Layout */
-#touch-controls {
-    position: absolute;
-    bottom: 12px;
-    left: 0;
+    top: 10px;
     width: 100%;
     display: flex;
     justify-content: space-between;
     padding: 0 20px;
     z-index: 10;
-    pointer-events: none; /* Let empty space pass touches to canvas */
 }
 
-#joystick-base, .action-buttons {
-    pointer-events: auto; /* Enable touch on controls specifically */
+.hud-player { width: 35%; }
+.player-label { font-size: 0.75rem; font-weight: bold; }
+.hp-bar-bg { width: 100%; height: 12px; background: #334155; border-radius: 6px; overflow: hidden; }
+.hp-bar { width: 100%; height: 100%; background: #22c55e; transition: width 0.2s ease; }
+#round-indicator { font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 4px; }
+
+/* Floating Damage Overlay */
+#damage-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 15;
 }
+
+.floating-dmg {
+    position: absolute;
+    top: 40%;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #ff3355;
+    text-shadow: 0 0 8px #000;
+    animation: floatUp 0.8s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.4); opacity: 0; }
+}
+
+/* 3D Canvas */
+#game-canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+
+/* Touch Controls */
+#touch-controls {
+    position: absolute;
+    bottom: 15px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 25px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#joystick-base, .action-buttons { pointer-events: auto; }
 
 #joystick-base {
     width: 85px;
     height: 85px;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.15);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
     position: relative;
@@ -348,19 +184,14 @@ input {
 #joystick-stick {
     width: 35px;
     height: 35px;
-    background: rgba(56, 189, 248, 0.85);
+    background: #38bdf8;
     border-radius: 50%;
     position: absolute;
     top: 23px;
     left: 23px;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
-}
-
+.action-buttons { display: flex; gap: 12px; align-items: flex-end; }
 .control-btn {
     width: 55px;
     height: 55px;
@@ -369,22 +200,17 @@ input {
     background: rgba(255, 255, 255, 0.25);
     color: #fff;
     font-weight: bold;
-    font-size: 0.7rem;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    font-size: 0.75rem;
 }
 
-.control-btn.attack {
-    background: rgba(225, 29, 72, 0.85);
-}
+.control-btn.attack { background: #e11d48; }
 
-/* --- MODALS --- */
+/* MODALS */
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.8);
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -394,44 +220,9 @@ input {
 .modal-box {
     background: #0f172a;
     border: 1px solid #334155;
-    padding: 15px 20px;
+    padding: 20px;
     border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 240px;
     text-align: center;
 }
 
-.modal-box.compact {
-    width: auto;
-    background: transparent;
-    border: none;
-}
-
-.result-img {
-    max-width: 160px;
-    margin: 0 auto;
-}
-
-/* Force Landscape Warning on Portrait Phones */
-@media screen and (orientation: portrait) {
-    body::before {
-        content: "Please rotate your device to Landscape mode 🔄";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: #020617;
-        color: #38bdf8;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 1.1rem;
-        font-weight: bold;
-        text-align: center;
-        padding: 20px;
-        z-index: 9999;
-    }
-}
+.modal-actions { display: flex; gap: 10px; margin-top: 15px; }
