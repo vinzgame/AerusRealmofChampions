@@ -1,346 +1,317 @@
-// --- AERUS: 3D ENGINE WITH FX & AUDIO SYNTHESIS ---
+/* ==========================================================================
+   AERUS: REALM OF CHAMPIONS - THREE.JS 3D COMBAT ENGINE
+   ========================================================================== */
 
 let scene, camera, renderer;
-let player1, player2;
-let p1Health = 100, p2Health = 100;
-let isRoundActive = false;
-let audioCtx = null;
+let p1Mesh, p2Mesh;
+let matchTimer = 60;
+let timerInterval = null;
 
-const joystickVector = { x: 0, y: 0 };
-let isAttacking = false;
-let particles = [];
+let p1State = { hp: 100, x: -2.5, y: 0, isJumping: false, vy: 0, isBlocking: false, animAction: 'idle' };
+let p2State = { hp: 100, x: 2.5, y: 0, isJumping: false, vy: 0, isBlocking: false, animAction: 'idle' };
 
-// --- WEBAUDIO SOUND ENGINE (OPEN SOURCE / SYNTHESIZED) ---
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-}
+const joystickInput = { x: 0, y: 0 };
+let currentSelectedHero = null;
+let matchDifficulty = 'NORMAL';
 
-function playSound(type) {
-  if (!audioCtx) return;
+// Initialize 3D Arena & Combat Loop
+window.start3DMatch = function(selectedHero, settings) {
+    currentSelectedHero = selectedHero;
+    matchDifficulty = settings.difficulty || 'NORMAL';
+    
+    audio.init();
 
-  const now = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
+    const container = document.getElementById('game-canvas-container');
+    container.innerHTML = '';
 
-  if (type === 'hit') {
-    // Punch / Impact Sound
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(180, now);
-    osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
-    gain.gain.setValueAtTime(0.8, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-    osc.start(now);
-    osc.stop(now + 0.15);
-  } else if (type === 'jump') {
-    // Woosh Jump Sound
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(150, now);
-    osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    osc.start(now);
-    osc.stop(now + 0.2);
-  } else if (type === 'victory') {
-    // Win Fanfare
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.setValueAtTime(554.37, now + 0.15);
-    osc.frequency.setValueAtTime(659.25, now + 0.3);
-    gain.gain.setValueAtTime(0.5, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-    osc.start(now);
-    osc.stop(now + 0.6);
-  }
-}
+    // 1. Scene & Camera Setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050b14);
+    scene.fog = new THREE.FogExp2(0x050b14, 0.03);
 
-// Initialize 3D Arena
-window.init3DGame = function(selectedChar) {
-  initAudio();
-  const container = document.getElementById('game-canvas-container');
-  if (!container) return;
-  container.innerHTML = '';
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2.5, 8);
 
-  // Scene & Camera
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050b14);
-  scene.fog = new THREE.FogExp2(0x050b14, 0.03);
+    // 2. Renderer Setup
+    renderer = new THREE.WebGLRenderer({ antialias: settings.graphics !== 'LOW' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = settings.graphics !== 'LOW';
+    container.appendChild(renderer.domElement);
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 3.2, 9.5);
+    // 3. Lighting Architecture
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
 
-  // WebGL Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  container.appendChild(renderer.domElement);
+    const cyanLight = new THREE.PointLight(0x00f0ff, 2, 15);
+    cyanLight.position.set(-4, 3, 2);
+    scene.add(cyanLight);
 
-  // Lights
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-  scene.add(ambientLight);
+    const goldLight = new THREE.PointLight(0xffb700, 2, 15);
+    goldLight.position.set(4, 3, 2);
+    scene.add(goldLight);
 
-  const cyanLight = new THREE.PointLight(0x00f0ff, 2, 20);
-  cyanLight.position.set(-5, 4, 3);
-  scene.add(cyanLight);
+    // 4. Arena Environment
+    build3DArena();
 
-  const magentaLight = new THREE.PointLight(0xff0055, 2, 20);
-  magentaLight.position.set(5, 4, 3);
-  scene.add(magentaLight);
+    // 5. Build 3D Fighters
+    buildFighters();
 
-  // Sci-Fi Cyber Grid Stage
-  const groundGeo = new THREE.PlaneGeometry(32, 12);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1128, roughness: 0.4, metalness: 0.8 });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
+    // 6. Setup Controls & Loop
+    setupJoystickControls();
+    setupActionButtons();
+    startMatchTimer();
 
-  // Load 3D Models
-  loadHeroCharacters(selectedChar);
-
-  // Mobile Controls
-  setupJoystick();
-  setupActionButtons();
-
-  isRoundActive = true;
-  animate3D();
+    // Render loop
+    animate3DScene();
 };
 
-function loadHeroCharacters(selectedChar) {
-  const loader = new THREE.GLTFLoader();
+function build3DArena() {
+    // Metallic Ring Floor
+    const floorGeo = new THREE.CylinderGeometry(8, 8, 0.4, 32);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x0c1428, roughness: 0.3, metalness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.position.y = -0.2;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-  // Public Hosted Hero Models
-  let p1Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
-  let p2Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb';
-
-  if (selectedChar && selectedChar.id === 'soldier') {
-    p1Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb';
-    p2Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
-  }
-
-  // Load P1
-  loader.load(p1Url, (gltf) => {
-    player1 = gltf.scene;
-    const scale = selectedChar && selectedChar.id === 'soldier' ? 1.2 : 0.4;
-    player1.scale.set(scale, scale, scale);
-    player1.position.set(-3, 0, 0);
-    player1.rotation.y = Math.PI / 2;
-    player1.userData = { velocityY: 0, isJumping: false, facingRight: true };
-    scene.add(player1);
-  });
-
-  // Load P2
-  loader.load(p2Url, (gltf) => {
-    player2 = gltf.scene;
-    const scale = selectedChar && selectedChar.id === 'soldier' ? 0.4 : 1.2;
-    player2.scale.set(scale, scale, scale);
-    player2.position.set(3, 0, 0);
-    player2.rotation.y = -Math.PI / 2;
-    player2.userData = { velocityY: 0, isJumping: false, facingRight: false };
-    scene.add(player2);
-  });
+    // Glowing Neon Ring Edge
+    const ringGeo = new THREE.TorusGeometry(8.05, 0.08, 16, 100);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    scene.add(ring);
 }
 
-function createHitParticles(x, y, z) {
-  for (let i = 0; i < 12; i++) {
-    const geo = new THREE.SphereGeometry(0.08, 8, 8);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
-    const p = new THREE.Mesh(geo, mat);
-    p.position.set(x, y, z);
-    p.userData = {
-      vx: (Math.random() - 0.5) * 0.2,
-      vy: Math.random() * 0.2,
-      vz: (Math.random() - 0.5) * 0.2,
-      life: 1.0
+function buildFighters() {
+    // Reset States
+    p1State = { hp: 100, x: -2.5, y: 0, isJumping: false, vy: 0, isBlocking: false };
+    p2State = { hp: 100, x: 2.5, y: 0, isJumping: false, vy: 0, isBlocking: false };
+
+    // Player 1 Capsule/Hero Mesh Placeholder (Extensible for GLTF dynamically)
+    const p1Geo = new THREE.CapsuleGeometry(0.5, 1.2, 4, 8);
+    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.2 });
+    p1Mesh = new THREE.Mesh(p1Geo, p1Mat);
+    p1Mesh.position.set(p1State.x, 1, 0);
+    p1Mesh.castShadow = true;
+    scene.add(p1Mesh);
+
+    // CPU Fighter Mesh
+    const p2Geo = new THREE.CapsuleGeometry(0.5, 1.2, 4, 8);
+    const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.2 });
+    p2Mesh = new THREE.Mesh(p2Geo, p2Mat);
+    p2Mesh.position.set(p2State.x, 1, 0);
+    p2Mesh.castShadow = true;
+    scene.add(p2Mesh);
+
+    // Reset HUD
+    document.getElementById('p1-hp-fill').style.width = '100%';
+    document.getElementById('p2-hp-fill').style.width = '100%';
+    document.getElementById('p1-hp-num').innerText = '100%';
+    document.getElementById('p2-hp-num').innerText = '100%';
+    document.getElementById('p1-hud-name').innerText = currentSelectedHero ? currentSelectedHero.name : 'PLAYER 1';
+}
+
+// --- TOUCH JOYSTICK ENGINE ---
+function setupJoystickControls() {
+    const boundary = document.getElementById('joystick-boundary');
+    const knob = document.getElementById('joystick-knob');
+    if (!boundary || !knob) return;
+
+    let touchId = null;
+    const maxRadius = 35;
+
+    function moveKnob(clientX, clientY) {
+        const rect = boundary.getBoundingClientRect();
+        let dx = clientX - (rect.left + rect.width / 2);
+        let dy = clientY - (rect.top + rect.height / 2);
+        let dist = Math.hypot(dx, dy);
+
+        if (dist > maxRadius) {
+            dx = (dx / dist) * maxRadius;
+            dy = (dy / dist) * maxRadius;
+        }
+
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joystickInput.x = dx / maxRadius;
+        joystickInput.y = dy / maxRadius;
+    }
+
+    boundary.addEventListener('touchstart', (e) => {
+        const t = e.changedTouches[0];
+        touchId = t.identifier;
+        moveKnob(t.clientX, t.clientY);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        for (let t of e.changedTouches) {
+            if (t.identifier === touchId) moveKnob(t.clientX, t.clientY);
+        }
+    });
+
+    const resetKnob = () => {
+        touchId = null;
+        knob.style.transform = 'translate(0px, 0px)';
+        joystickInput.x = 0;
+        joystickInput.y = 0;
     };
-    scene.add(p);
-    particles.push(p);
-  }
+
+    window.addEventListener('touchend', resetKnob);
+    window.addEventListener('touchcancel', resetKnob);
 }
 
-function showFloatingDamage(amount, x) {
-  const overlay = document.getElementById('damage-overlay');
-  if (!overlay) return;
-
-  const el = document.createElement('div');
-  el.className = 'floating-dmg';
-  el.innerText = `-${amount}`;
-  el.style.left = `${(x + 10) * 4.5}%`;
-  overlay.appendChild(el);
-
-  setTimeout(() => el.remove(), 800);
-}
-
-function setupJoystick() {
-  const base = document.getElementById('joystick-base');
-  const stick = document.getElementById('joystick-stick');
-  if (!base || !stick) return;
-
-  const maxRadius = 35;
-  let touchId = null;
-
-  function handleMove(clientX, clientY) {
-    const rect = base.getBoundingClientRect();
-    let deltaX = clientX - (rect.left + rect.width / 2);
-    let deltaY = clientY - (rect.top + rect.height / 2);
-    let dist = Math.hypot(deltaX, deltaY);
-
-    if (dist > maxRadius) {
-      deltaX = (deltaX / dist) * maxRadius;
-      deltaY = (deltaY / dist) * maxRadius;
-    }
-
-    stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-    joystickVector.x = deltaX / maxRadius;
-  }
-
-  base.addEventListener('touchstart', (e) => {
-    initAudio();
-    touchId = e.changedTouches[0].identifier;
-    handleMove(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-  });
-
-  window.addEventListener('touchmove', (e) => {
-    for (let t of e.changedTouches) {
-      if (t.identifier === touchId) handleMove(t.clientX, t.clientY);
-    }
-  });
-
-  const reset = () => {
-    touchId = null;
-    stick.style.transform = `translate(0px, 0px)`;
-    joystickVector.x = 0;
-  };
-
-  window.addEventListener('touchend', reset);
-}
-
+// --- ACTION BUTTONS ---
 function setupActionButtons() {
-  const jumpBtn = document.getElementById('btn-jump');
-  const attackBtn = document.getElementById('btn-attack');
+    document.getElementById('btn-light').onclick = () => performAttack('light');
+    document.getElementById('btn-heavy').onclick = () => performAttack('heavy');
+    document.getElementById('btn-special').onclick = () => performAttack('special');
 
-  if (jumpBtn) {
-    jumpBtn.onclick = () => {
-      initAudio();
-      if (player1 && !player1.userData.isJumping) {
-        playSound('jump');
-        player1.userData.velocityY = 0.28;
-        player1.userData.isJumping = true;
-      }
+    document.getElementById('btn-jump').onclick = () => {
+        if (!p1State.isJumping) {
+            audio.playJump();
+            p1State.isJumping = true;
+            p1State.vy = 0.22;
+        }
     };
-  }
 
-  if (attackBtn) {
-    attackBtn.onclick = () => {
-      initAudio();
-      if (player1 && !isAttacking) {
-        isAttacking = true;
-        player1.position.x += 0.6;
-        checkHit(player1, player2, 'p2');
-
-        setTimeout(() => {
-          if (player1) player1.position.x -= 0.6;
-          isAttacking = false;
-        }, 150);
-      }
-    };
-  }
+    const blockBtn = document.getElementById('btn-block');
+    blockBtn.ontouchstart = () => { p1State.isBlocking = true; };
+    blockBtn.ontouchend = () => { p1State.isBlocking = false; };
+    blockBtn.onmousedown = () => { p1State.isBlocking = true; };
+    blockBtn.onmouseup = () => { p1State.isBlocking = false; };
 }
 
-function checkHit(attacker, defender, targetTag) {
-  if (!attacker || !defender) return;
-  const dist = attacker.position.distanceTo(defender.position);
+function performAttack(type) {
+    if (p1State.hp <= 0) return;
 
-  if (dist < 2.2) {
-    playSound('hit');
-    createHitParticles(defender.position.x, 1.2, defender.position.z);
-    showFloatingDamage(15, defender.position.x);
+    let damage = 8;
+    let attackReach = 1.8;
 
-    if (targetTag === 'p2') {
-      p2Health = Math.max(0, p2Health - 15);
-      document.getElementById('p2-hp-bar').style.width = p2Health + '%';
-      document.getElementById('p2-hp-text').innerText = p2Health + '%';
+    if (type === 'heavy') damage = 16;
+    if (type === 'special') damage = 25;
+
+    // Visual Strike Animation Bump
+    p1Mesh.position.x += 0.4;
+    setTimeout(() => { if (p1Mesh) p1Mesh.position.x = p1State.x; }, 100);
+
+    // Hit detection
+    const dist = Math.abs(p1State.x - p2State.x);
+    if (dist < attackReach) {
+        audio.playHit();
+        let finalDamage = damage;
+        if (p2State.isBlocking) finalDamage *= 0.2;
+
+        p2State.hp = Math.max(0, p2State.hp - finalDamage);
+        document.getElementById('p2-hp-fill').style.width = `${p2State.hp}%`;
+        document.getElementById('p2-hp-num').innerText = `${Math.ceil(p2State.hp)}%`;
+
+        if (p2State.hp <= 0) {
+            endMatch('VICTORY');
+        }
     }
-
-    if (p1Health <= 0 || p2Health <= 0) {
-      isRoundActive = false;
-      playSound('victory');
-      if (window.handleRoundEnd) {
-        window.handleRoundEnd(p1Health > 0 ? 'p1' : 'p2');
-      }
-    }
-  }
 }
 
-window.restartRound = function() {
-  p1Health = 100;
-  p2Health = 100;
-  document.getElementById('p1-hp-bar').style.width = '100%';
-  document.getElementById('p2-hp-bar').style.width = '100%';
-  document.getElementById('p1-hp-text').innerText = '100%';
-  document.getElementById('p2-hp-text').innerText = '100%';
+// --- MATCH TIMER & CPU AI ---
+function startMatchTimer() {
+    matchTimer = 60;
+    document.getElementById('match-timer').innerText = matchTimer;
+    if (timerInterval) clearInterval(timerInterval);
 
-  if (player1) player1.position.set(-3, 0, 0);
-  if (player2) player2.position.set(3, 0, 0);
-  isRoundActive = true;
+    timerInterval = setInterval(() => {
+        matchTimer--;
+        document.getElementById('match-timer').innerText = matchTimer;
+
+        if (matchTimer <= 0) {
+            clearInterval(timerInterval);
+            endMatch(p1State.hp >= p2State.hp ? 'VICTORY' : 'DEFEAT');
+        }
+    }, 1000);
+}
+
+function updateCpuAI() {
+    if (p2State.hp <= 0 || p1State.hp <= 0) return;
+
+    const dist = p1State.x - p2State.x;
+    const speed = matchDifficulty === 'HARD' ? 0.05 : 0.03;
+
+    if (Math.abs(dist) > 1.4) {
+        p2State.x += dist > 0 ? speed : -speed;
+    } else {
+        // Attack probability
+        if (Math.random() < 0.03) {
+            p2Mesh.position.x -= 0.3;
+            setTimeout(() => { if (p2Mesh) p2Mesh.position.x = p2State.x; }, 100);
+
+            let dmg = matchDifficulty === 'HARD' ? 12 : 7;
+            if (p1State.isBlocking) dmg *= 0.2;
+
+            p1State.hp = Math.max(0, p1State.hp - dmg);
+            audio.playHit();
+            document.getElementById('p1-hp-fill').style.width = `${p1State.hp}%`;
+            document.getElementById('p1-hp-num').innerText = `${Math.ceil(p1State.hp)}%`;
+
+            if (p1State.hp <= 0) {
+                endMatch('DEFEAT');
+            }
+        }
+    }
+}
+
+// --- MAIN 3D RENDER & PHYSICS LOOP ---
+function animate3DScene() {
+    if (!renderer) return;
+    requestAnimationFrame(animate3DScene);
+
+    // Player 1 Movement Logic
+    p1State.x += joystickInput.x * 0.08;
+    p1State.x = Math.max(-6, Math.min(6, p1State.x));
+
+    if (p1State.isJumping) {
+        p1State.y += p1State.vy;
+        p1State.vy -= 0.015;
+        if (p1State.y <= 0) {
+            p1State.y = 0;
+            p1State.isJumping = false;
+        }
+    }
+
+    if (p1Mesh) {
+        p1Mesh.position.x = p1State.x;
+        p1Mesh.position.y = 1 + p1State.y;
+    }
+
+    // CPU AI Movement Loop
+    updateCpuAI();
+    if (p2Mesh) {
+        p2Mesh.position.x = p2State.x;
+    }
+
+    // Camera Framing (Dynamic Distance Centering)
+    if (camera && p1Mesh && p2Mesh) {
+        const midX = (p1State.x + p2State.x) / 2;
+        camera.position.x = midX;
+    }
+
+    renderer.render(scene, camera);
+}
+
+function endMatch(result) {
+    if (timerInterval) clearInterval(timerInterval);
+    if (window.onMatchComplete) {
+        window.onMatchComplete(result);
+    }
+}
+
+window.restart3DMatch = function() {
+    if (currentSelectedHero) {
+        window.start3DMatch(currentSelectedHero, { difficulty: matchDifficulty });
+    }
 };
-
-function animate3D() {
-  if (!renderer) return;
-  requestAnimationFrame(animate3D);
-
-  if (isRoundActive && player1 && player2) {
-    player1.position.x += joystickVector.x * 0.1;
-    player1.position.x = Math.max(-9, Math.min(9, player1.position.x));
-
-    if (player1.userData.isJumping) {
-      player1.position.y += player1.userData.velocityY;
-      player1.userData.velocityY -= 0.018;
-      if (player1.position.y <= 0) {
-        player1.position.y = 0;
-        player1.userData.isJumping = false;
-      }
-    }
-
-    // AI logic
-    const dist = player1.position.x - player2.position.x;
-    if (Math.abs(dist) > 1.6) {
-      player2.position.x += dist > 0 ? 0.03 : -0.03;
-    } else if (Math.random() < 0.02) {
-      checkHit(player2, player1, 'p1');
-    }
-
-    camera.position.x = (player1.position.x + player2.position.x) / 2;
-  }
-
-  // Animate hit particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.position.x += p.userData.vx;
-    p.position.y += p.userData.vy;
-    p.position.z += p.userData.vz;
-    p.userData.life -= 0.05;
-    p.scale.multiplyScalar(0.9);
-
-    if (p.userData.life <= 0) {
-      scene.remove(p);
-      particles.splice(i, 1);
-    }
-  }
-
-  renderer.render(scene, camera);
-}
 
 window.addEventListener('resize', () => {
-  if (camera && renderer) {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
+    if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 });
