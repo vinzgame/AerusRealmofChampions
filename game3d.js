@@ -1,55 +1,110 @@
-// --- AERUS: REALM OF CHAMPIONS - 3D HERO MODEL ENGINE ---
+// --- AERUS: 3D ENGINE WITH FX & AUDIO SYNTHESIS ---
 
 let scene, camera, renderer;
 let player1, player2;
 let p1Health = 100, p2Health = 100;
 let isRoundActive = false;
+let audioCtx = null;
 
 const joystickVector = { x: 0, y: 0 };
 let isAttacking = false;
+let particles = [];
 
-// Initialize 3D Scene
+// --- WEBAUDIO SOUND ENGINE (OPEN SOURCE / SYNTHESIZED) ---
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playSound(type) {
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  if (type === 'hit') {
+    // Punch / Impact Sound
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+    gain.gain.setValueAtTime(0.8, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    osc.start(now);
+    osc.stop(now + 0.15);
+  } else if (type === 'jump') {
+    // Woosh Jump Sound
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } else if (type === 'victory') {
+    // Win Fanfare
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.setValueAtTime(554.37, now + 0.15);
+    osc.frequency.setValueAtTime(659.25, now + 0.3);
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+    osc.start(now);
+    osc.stop(now + 0.6);
+  }
+}
+
+// Initialize 3D Arena
 window.init3DGame = function(selectedChar) {
+  initAudio();
   const container = document.getElementById('game-canvas-container');
   if (!container) return;
   container.innerHTML = '';
 
-  // Scene & Camera Setup
+  // Scene & Camera
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0f1d);
-  scene.fog = new THREE.FogExp2(0x0a0f1d, 0.02);
+  scene.background = new THREE.Color(0x050b14);
+  scene.fog = new THREE.FogExp2(0x050b14, 0.03);
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 3, 10);
+  camera.position.set(0, 3.2, 9.5);
 
   // WebGL Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
-  // Scene Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
 
-  const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.5);
-  dirLight.position.set(5, 12, 8);
-  dirLight.castShadow = true;
-  scene.add(dirLight);
+  const cyanLight = new THREE.PointLight(0x00f0ff, 2, 20);
+  cyanLight.position.set(-5, 4, 3);
+  scene.add(cyanLight);
 
-  // Arena Floor
-  const groundGeo = new THREE.PlaneGeometry(30, 10);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+  const magentaLight = new THREE.PointLight(0xff0055, 2, 20);
+  magentaLight.position.set(5, 4, 3);
+  scene.add(magentaLight);
+
+  // Sci-Fi Cyber Grid Stage
+  const groundGeo = new THREE.PlaneGeometry(32, 12);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1128, roughness: 0.4, metalness: 0.8 });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Load 3D Character Models from Public Hosted Links
+  // Load 3D Models
   loadHeroCharacters(selectedChar);
 
-  // Setup Mobile Controls
+  // Mobile Controls
   setupJoystick();
   setupActionButtons();
 
@@ -60,74 +115,68 @@ window.init3DGame = function(selectedChar) {
 function loadHeroCharacters(selectedChar) {
   const loader = new THREE.GLTFLoader();
 
-  // Hosted public 3D character links (No local downloads needed)
-  const p1ModelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
-  const p2ModelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb';
+  // Public Hosted Hero Models
+  let p1Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+  let p2Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb';
 
-  // Load Player 1 Hero (Robot Champion)
-  loader.load(
-    p1ModelUrl,
-    (gltf) => {
-      player1 = gltf.scene;
-      player1.scale.set(0.4, 0.4, 0.4);
-      player1.position.set(-3, 0, 0);
-      player1.rotation.y = Math.PI / 2;
-      player1.userData = { velocityY: 0, isJumping: false, facingRight: true };
+  if (selectedChar && selectedChar.id === 'soldier') {
+    p1Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb';
+    p2Url = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+  }
 
-      player1.traverse(child => { if (child.isMesh) child.castShadow = true; });
-      scene.add(player1);
-    },
-    undefined,
-    (error) => {
-      console.warn("Failed loading P1 model, loading fallback mesh.", error);
-      player1 = createFallbackHeroMesh(0x38bdf8, -3, true);
-    }
-  );
+  // Load P1
+  loader.load(p1Url, (gltf) => {
+    player1 = gltf.scene;
+    const scale = selectedChar && selectedChar.id === 'soldier' ? 1.2 : 0.4;
+    player1.scale.set(scale, scale, scale);
+    player1.position.set(-3, 0, 0);
+    player1.rotation.y = Math.PI / 2;
+    player1.userData = { velocityY: 0, isJumping: false, facingRight: true };
+    scene.add(player1);
+  });
 
-  // Load Player 2 Hero (Enemy Soldier)
-  loader.load(
-    p2ModelUrl,
-    (gltf) => {
-      player2 = gltf.scene;
-      player2.scale.set(1.2, 1.2, 1.2);
-      player2.position.set(3, 0, 0);
-      player2.rotation.y = -Math.PI / 2;
-      player2.userData = { velocityY: 0, isJumping: false, facingRight: false };
-
-      player2.traverse(child => { if (child.isMesh) child.castShadow = true; });
-      scene.add(player2);
-    },
-    undefined,
-    (error) => {
-      console.warn("Failed loading P2 model, loading fallback mesh.", error);
-      player2 = createFallbackHeroMesh(0xe11d48, 3, false);
-    }
-  );
+  // Load P2
+  loader.load(p2Url, (gltf) => {
+    player2 = gltf.scene;
+    const scale = selectedChar && selectedChar.id === 'soldier' ? 0.4 : 1.2;
+    player2.scale.set(scale, scale, scale);
+    player2.position.set(3, 0, 0);
+    player2.rotation.y = -Math.PI / 2;
+    player2.userData = { velocityY: 0, isJumping: false, facingRight: false };
+    scene.add(player2);
+  });
 }
 
-// Fallback Mesh if Connection Fails
-function createFallbackHeroMesh(colorHex, startX, facingRight) {
-  const group = new THREE.Group();
-
-  const torsoGeo = new THREE.CylinderGeometry(0.4, 0.25, 1.4, 8);
-  const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
-  const torso = new THREE.Mesh(torsoGeo, mat);
-  torso.position.y = 1.3;
-  group.add(torso);
-
-  const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
-  const head = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-  head.position.y = 2.2;
-  group.add(head);
-
-  group.position.set(startX, 0, 0);
-  if (!facingRight) group.rotation.y = Math.PI;
-  group.userData = { velocityY: 0, isJumping: false, facingRight: facingRight };
-  scene.add(group);
-  return group;
+function createHitParticles(x, y, z) {
+  for (let i = 0; i < 12; i++) {
+    const geo = new THREE.SphereGeometry(0.08, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+    const p = new THREE.Mesh(geo, mat);
+    p.position.set(x, y, z);
+    p.userData = {
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: Math.random() * 0.2,
+      vz: (Math.random() - 0.5) * 0.2,
+      life: 1.0
+    };
+    scene.add(p);
+    particles.push(p);
+  }
 }
 
-// Touch Joystick Movement
+function showFloatingDamage(amount, x) {
+  const overlay = document.getElementById('damage-overlay');
+  if (!overlay) return;
+
+  const el = document.createElement('div');
+  el.className = 'floating-dmg';
+  el.innerText = `-${amount}`;
+  el.style.left = `${(x + 10) * 4.5}%`;
+  overlay.appendChild(el);
+
+  setTimeout(() => el.remove(), 800);
+}
+
 function setupJoystick() {
   const base = document.getElementById('joystick-base');
   const stick = document.getElementById('joystick-stick');
@@ -135,20 +184,16 @@ function setupJoystick() {
 
   const maxRadius = 35;
   let touchId = null;
-  let baseRect = null;
 
   function handleMove(clientX, clientY) {
-    if (!baseRect) baseRect = base.getBoundingClientRect();
-    const centerX = baseRect.left + baseRect.width / 2;
-    const centerY = baseRect.top + baseRect.height / 2;
+    const rect = base.getBoundingClientRect();
+    let deltaX = clientX - (rect.left + rect.width / 2);
+    let deltaY = clientY - (rect.top + rect.height / 2);
+    let dist = Math.hypot(deltaX, deltaY);
 
-    let deltaX = clientX - centerX;
-    let deltaY = clientY - centerY;
-    let distance = Math.hypot(deltaX, deltaY);
-
-    if (distance > maxRadius) {
-      deltaX = (deltaX / distance) * maxRadius;
-      deltaY = (deltaY / distance) * maxRadius;
+    if (dist > maxRadius) {
+      deltaX = (deltaX / dist) * maxRadius;
+      deltaY = (deltaY / dist) * maxRadius;
     }
 
     stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
@@ -156,39 +201,36 @@ function setupJoystick() {
   }
 
   base.addEventListener('touchstart', (e) => {
-    const touch = e.changedTouches[0];
-    touchId = touch.identifier;
-    baseRect = base.getBoundingClientRect();
-    handleMove(touch.clientX, touch.clientY);
+    initAudio();
+    touchId = e.changedTouches[0].identifier;
+    handleMove(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
   });
 
   window.addEventListener('touchmove', (e) => {
-    for (let touch of e.changedTouches) {
-      if (touch.identifier === touchId) {
-        handleMove(touch.clientX, touch.clientY);
-      }
+    for (let t of e.changedTouches) {
+      if (t.identifier === touchId) handleMove(t.clientX, t.clientY);
     }
   });
 
-  const resetJoystick = () => {
+  const reset = () => {
     touchId = null;
     stick.style.transform = `translate(0px, 0px)`;
     joystickVector.x = 0;
   };
 
-  window.addEventListener('touchend', resetJoystick);
-  window.addEventListener('touchcancel', resetJoystick);
+  window.addEventListener('touchend', reset);
 }
 
-// Action Buttons
 function setupActionButtons() {
   const jumpBtn = document.getElementById('btn-jump');
   const attackBtn = document.getElementById('btn-attack');
 
   if (jumpBtn) {
     jumpBtn.onclick = () => {
+      initAudio();
       if (player1 && !player1.userData.isJumping) {
-        player1.userData.velocityY = 0.3;
+        playSound('jump');
+        player1.userData.velocityY = 0.28;
         player1.userData.isJumping = true;
       }
     };
@@ -196,14 +238,14 @@ function setupActionButtons() {
 
   if (attackBtn) {
     attackBtn.onclick = () => {
+      initAudio();
       if (player1 && !isAttacking) {
         isAttacking = true;
-        // Attack displacement forward
-        player1.position.x += player1.userData.facingRight ? 0.5 : -0.5;
+        player1.position.x += 0.6;
         checkHit(player1, player2, 'p2');
 
         setTimeout(() => {
-          if (player1) player1.position.x -= player1.userData.facingRight ? 0.5 : -0.5;
+          if (player1) player1.position.x -= 0.6;
           isAttacking = false;
         }, 150);
       }
@@ -211,28 +253,24 @@ function setupActionButtons() {
   }
 }
 
-// Damage & Hit Logic
 function checkHit(attacker, defender, targetTag) {
   if (!attacker || !defender) return;
   const dist = attacker.position.distanceTo(defender.position);
-  
+
   if (dist < 2.2) {
+    playSound('hit');
+    createHitParticles(defender.position.x, 1.2, defender.position.z);
+    showFloatingDamage(15, defender.position.x);
+
     if (targetTag === 'p2') {
       p2Health = Math.max(0, p2Health - 15);
-      const bar = document.getElementById('p2-hp-bar');
-      const text = document.getElementById('p2-hp-text');
-      if (bar) bar.style.width = p2Health + '%';
-      if (text) text.innerText = p2Health + '%';
-    } else {
-      p1Health = Math.max(0, p1Health - 12);
-      const bar = document.getElementById('p1-hp-bar');
-      const text = document.getElementById('p1-hp-text');
-      if (bar) bar.style.width = p1Health + '%';
-      if (text) text.innerText = p1Health + '%';
+      document.getElementById('p2-hp-bar').style.width = p2Health + '%';
+      document.getElementById('p2-hp-text').innerText = p2Health + '%';
     }
 
     if (p1Health <= 0 || p2Health <= 0) {
       isRoundActive = false;
+      playSound('victory');
       if (window.handleRoundEnd) {
         window.handleRoundEnd(p1Health > 0 ? 'p1' : 'p2');
       }
@@ -253,17 +291,14 @@ window.restartRound = function() {
   isRoundActive = true;
 };
 
-// Game Loop
 function animate3D() {
   if (!renderer) return;
   requestAnimationFrame(animate3D);
 
   if (isRoundActive && player1 && player2) {
-    // Player Joystick Movement
     player1.position.x += joystickVector.x * 0.1;
-    player1.position.x = Math.max(-10, Math.min(10, player1.position.x));
+    player1.position.x = Math.max(-9, Math.min(9, player1.position.x));
 
-    // Jump Gravity Physics
     if (player1.userData.isJumping) {
       player1.position.y += player1.userData.velocityY;
       player1.userData.velocityY -= 0.018;
@@ -273,22 +308,35 @@ function animate3D() {
       }
     }
 
-    // AI Enemy Behavior
+    // AI logic
     const dist = player1.position.x - player2.position.x;
     if (Math.abs(dist) > 1.6) {
-      player2.position.x += dist > 0 ? 0.035 : -0.035;
-    } else if (Math.random() < 0.025) {
+      player2.position.x += dist > 0 ? 0.03 : -0.03;
+    } else if (Math.random() < 0.02) {
       checkHit(player2, player1, 'p1');
     }
 
-    // Dynamic Camera Tracking
     camera.position.x = (player1.position.x + player2.position.x) / 2;
+  }
+
+  // Animate hit particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.position.x += p.userData.vx;
+    p.position.y += p.userData.vy;
+    p.position.z += p.userData.vz;
+    p.userData.life -= 0.05;
+    p.scale.multiplyScalar(0.9);
+
+    if (p.userData.life <= 0) {
+      scene.remove(p);
+      particles.splice(i, 1);
+    }
   }
 
   renderer.render(scene, camera);
 }
 
-// Window Resize Handling
 window.addEventListener('resize', () => {
   if (camera && renderer) {
     camera.aspect = window.innerWidth / window.innerHeight;
