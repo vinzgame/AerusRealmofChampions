@@ -50,21 +50,40 @@
       pointer-events: none;
       z-index: 10;
     }
+    .center-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      pointer-events: auto;
+    }
     .game-logo {
-      height: 45px;
+      height: 40px;
       width: auto;
       object-fit: contain;
       filter: drop-shadow(0px 2px 8px rgba(0, 0, 0, 0.8));
     }
+    .mode-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid #38bdf8;
+      color: #38bdf8;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 3px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
     .health-box {
-      width: 35%;
+      width: 32%;
       background: rgba(15, 23, 42, 0.85);
       border: 2px solid #334155;
       padding: 5px;
       border-radius: 6px;
     }
     .player-name {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
       margin-bottom: 4px;
       text-transform: uppercase;
@@ -158,12 +177,15 @@
         </div>
       </div>
 
-      <!-- Game Logo Header -->
-      <img src="image/mainlogo.png" alt="Aerus: Realm of Champions Logo" class="game-logo">
+      <!-- Game Logo & Mode Toggle Header -->
+      <div class="center-header">
+        <img src="image/mainlogo.png" alt="Aerus Logo" class="game-logo">
+        <button id="mode-toggle" class="mode-btn">Mode: VS Computer</button>
+      </div>
 
-      <!-- Player 2 Health -->
+      <!-- Player 2 / Bot Health -->
       <div class="health-box">
-        <div class="player-name p2-name">Champion 2 (Rival)</div>
+        <div class="player-name p2-name" id="p2-label">CPU (Rival AI)</div>
         <div class="bar-bg">
           <div id="p2-health" class="bar-fill"></div>
         </div>
@@ -186,8 +208,7 @@
   </div>
 
   <div class="controls-hint">
-    <strong>Keyboard P1:</strong> A/D (Move) | W (Jump) | SPACE (Attack) &nbsp;|&nbsp; 
-    <strong>P2:</strong> ←/→ (Move) | ↑ (Jump) | ENTER (Attack)
+    <strong>P1 Controls:</strong> A/D or Touch ◀/▶ (Move) | W or ▲ (Jump) | SPACE or ⚔ (Attack)
   </div>
 
   <script>
@@ -196,7 +217,9 @@
 
     const GRAVITY = 0.6;
     const GROUND_Y = 320;
+    let isAiMode = true; // Bot enabled by default
 
+    // Fighter Class
     class Fighter {
       constructor({ position, velocity, color, attackBoxOffset, name, healthBarId }) {
         this.position = position;
@@ -272,6 +295,7 @@
       }
     }
 
+    // Instantiate Champions
     const player1 = new Fighter({
       position: { x: 100, y: 100 },
       velocity: { x: 0, y: 0 },
@@ -291,6 +315,7 @@
     });
     player2.facing = 'left';
 
+    // Inputs
     const keys = {
       a: { pressed: false },
       d: { pressed: false },
@@ -298,6 +323,22 @@
       ArrowRight: { pressed: false }
     };
 
+    // Mode Toggle Button Logic
+    const modeBtn = document.getElementById('mode-toggle');
+    const p2Label = document.getElementById('p2-label');
+
+    modeBtn.addEventListener('click', () => {
+      isAiMode = !isAiMode;
+      if (isAiMode) {
+        modeBtn.innerText = 'Mode: VS Computer';
+        p2Label.innerText = 'CPU (Rival AI)';
+      } else {
+        modeBtn.innerText = 'Mode: 2 Player Local';
+        p2Label.innerText = 'Champion 2 (P2)';
+      }
+    });
+
+    // Keyboard Listeners
     window.addEventListener('keydown', (event) => {
       switch (event.key) {
         case 'a': case 'A': keys.a.pressed = true; player1.facing = 'left'; break;
@@ -305,10 +346,11 @@
         case 'w': case 'W': if (player1.velocity.y === 0) player1.velocity.y = -14; break;
         case ' ': player1.attack(); break;
 
-        case 'ArrowLeft': keys.ArrowLeft.pressed = true; player2.facing = 'left'; break;
-        case 'ArrowRight': keys.ArrowRight.pressed = true; player2.facing = 'right'; break;
-        case 'ArrowUp': if (player2.velocity.y === 0) player2.velocity.y = -14; break;
-        case 'Enter': player2.attack(); break;
+        // Player 2 Manual Keys (When AI mode is OFF)
+        case 'ArrowLeft': if (!isAiMode) { keys.ArrowLeft.pressed = true; player2.facing = 'left'; } break;
+        case 'ArrowRight': if (!isAiMode) { keys.ArrowRight.pressed = true; player2.facing = 'right'; } break;
+        case 'ArrowUp': if (!isAiMode && player2.velocity.y === 0) player2.velocity.y = -14; break;
+        case 'Enter': if (!isAiMode) player2.attack(); break;
       }
     });
 
@@ -321,6 +363,7 @@
       }
     });
 
+    // Touch Event Listeners for Mobile
     function bindTouchButton(btnId, onPress, onRelease) {
       const btn = document.getElementById(btnId);
       btn.addEventListener('touchstart', (e) => { e.preventDefault(); onPress(); });
@@ -332,6 +375,38 @@
     bindTouchButton('btn-jump', () => { if (player1.velocity.y === 0) player1.velocity.y = -14; });
     bindTouchButton('btn-attack', () => { player1.attack(); });
 
+    // Computer Bot / AI Logic
+    function updateComputerAI() {
+      if (!isAiMode || player2.health <= 0) return;
+
+      const distanceToPlayer = player1.position.x - player2.position.x;
+
+      // Face toward player
+      if (distanceToPlayer > 0) {
+        player2.facing = 'right';
+      } else {
+        player2.facing = 'left';
+      }
+
+      // Movement Decision
+      if (Math.abs(distanceToPlayer) > 60) {
+        // Move towards Player 1
+        player2.velocity.x = distanceToPlayer > 0 ? 3.5 : -3.5;
+      } else {
+        // Close distance: Attack randomly
+        player2.velocity.x = 0;
+        if (Math.random() < 0.05) {
+          player2.attack();
+        }
+      }
+
+      // Jump occasionally if Player 1 jumps
+      if (player1.position.y < GROUND_Y - 120 && player2.velocity.y === 0 && Math.random() < 0.08) {
+        player2.velocity.y = -14;
+      }
+    }
+
+    // Collision Helper
     function rectangularCollision({ rectangle1, rectangle2 }) {
       return (
         rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
@@ -341,6 +416,7 @@
       );
     }
 
+    // Main Game Loop
     function animate() {
       window.requestAnimationFrame(animate);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -349,22 +425,31 @@
       ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
 
       player1.velocity.x = 0;
-      player2.velocity.x = 0;
+      if (!isAiMode) player2.velocity.x = 0;
 
+      // Player 1 Movement
       if (keys.a.pressed) player1.velocity.x = -5;
       else if (keys.d.pressed) player1.velocity.x = 5;
 
-      if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
-      else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
+      // Player 2 Manual Movement (If AI disabled)
+      if (!isAiMode) {
+        if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
+        else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
+      } else {
+        // Update Bot Logic
+        updateComputerAI();
+      }
 
       player1.update();
       player2.update();
 
+      // Check Hits (P1 -> P2/Bot)
       if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
         player1.isAttacking = false;
         player2.takeDamage(10);
       }
 
+      // Check Hits (P2/Bot -> P1)
       if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
         player2.isAttacking = false;
         player1.takeDamage(10);
