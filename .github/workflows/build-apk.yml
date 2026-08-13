@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # 3. Set up Java JDK 17 (Required for modern Android builds)
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 4. Set up Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5. Install Dependencies & Build Capacitor
+      - name: Install & Sync Capacitor
+        run: |
+          npm ci || npm install
+          npx cap sync android
+
+      # 6. Make Gradle executable & Build APK
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      # 7. Upload APK Artifact for Download
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aerus.Apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
