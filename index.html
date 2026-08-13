@@ -6,7 +6,7 @@
     <title>Aerus: Realm of Champions</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- 3D Engine Libraries (Order dependent) -->
+    <!-- 3D Engine Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
@@ -15,60 +15,32 @@
     <!-- 1. LOADING SCREEN -->
     <div id="loading-screen" class="screen active">
         <div class="loading-container">
-            <img src="image/logo.png" alt="Aerus Logo" class="logo-img" onerror="this.style.display='none'">
             <h1 class="game-title">AERUS</h1>
             <p class="game-subtitle">REALM OF CHAMPIONS</p>
             <div class="progress-bar-container">
                 <div id="loading-bar"></div>
             </div>
-            <p id="loading-text">Loading Realm Assets... 0%</p>
+            <p id="loading-text">Initializing Sound & Realm Engine...</p>
         </div>
     </div>
 
-    <!-- 2. AUTHENTICATION SCREEN -->
-    <div id="auth-screen" class="screen hidden">
-        <div class="auth-card">
-            <h2>REALM ACCESS</h2>
-            
-            <!-- Login Form -->
-            <form id="login-form">
-                <input type="text" id="login-username" placeholder="Username" autocomplete="username" required>
-                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
-                <button type="submit" class="btn primary-btn">SIGN IN</button>
-                <p class="auth-toggle">Need an account? <span id="show-signup">Create Account</span></p>
-            </form>
-
-            <!-- Signup Form -->
-            <form id="signup-form" class="hidden">
-                <input type="text" id="signup-displayname" placeholder="Display Name" autocomplete="nickname" required>
-                <input type="text" id="signup-username" placeholder="Username" autocomplete="username" required>
-                <input type="password" id="signup-password" placeholder="Password" autocomplete="new-password" required>
-                <button type="submit" class="btn primary-btn">CREATE ACCOUNT</button>
-                <p class="auth-toggle">Already have an account? <span id="show-login">Sign In</span></p>
-            </form>
-        </div>
-    </div>
-
-    <!-- 3. HOME SCREEN -->
+    <!-- 2. HOME SCREEN / CHARACTER SELECT -->
     <div id="home-screen" class="screen hidden">
-        <!-- Top Bar -->
         <header class="top-bar">
-            <button id="menu-btn" class="icon-btn">☰</button>
             <div class="user-info">
-                <span id="p1-display-name">Champion</span>
+                <span id="p1-display-name">CHAMPION</span>
             </div>
             <div class="currency-display">
-                🪙 <span id="coin-count">1,000</span>
+                🪙 <span id="coin-count">1,250</span>
             </div>
         </header>
 
-        <!-- Character Selector -->
         <main class="home-content">
             <div class="character-preview">
                 <button id="char-prev" class="nav-arrow">❮</button>
                 <div class="char-details">
-                    <h2 id="char-name">Aerus Skyblade</h2>
-                    <p id="char-desc">Agile knight wielding a fast energy blade.</p>
+                    <h2 id="char-name">UNIT-01 ROBOT</h2>
+                    <p id="char-desc">Fast cybernetic hero with high agility and rapid energy strikes.</p>
                 </div>
                 <button id="char-next" class="nav-arrow">❯</button>
             </div>
@@ -76,31 +48,31 @@
         </main>
     </div>
 
-    <!-- 4. GAME SCREEN -->
+    <!-- 3. GAME SCREEN -->
     <div id="game-screen" class="screen hidden">
-        <!-- Game HUD -->
         <div id="game-hud">
             <div class="hud-player p1">
-                <span class="player-label">P1</span>
+                <span class="player-label" id="p1-name-hud">PLAYER 1</span>
                 <div class="hp-bar-bg"><div id="p1-hp-bar" class="hp-bar"></div></div>
                 <span id="p1-hp-text">100%</span>
-                <div id="p1-dots" class="round-dots"><span class="dot"></span><span class="dot"></span></div>
             </div>
 
             <div id="round-indicator">ROUND 1</div>
 
             <div class="hud-player p2">
-                <span class="player-label">P2</span>
+                <span class="player-label" id="p2-name-hud">CYBER SOLDIER</span>
                 <div class="hp-bar-bg"><div id="p2-hp-bar" class="hp-bar"></div></div>
                 <span id="p2-hp-text">100%</span>
-                <div id="p2-dots" class="round-dots"><span class="dot"></span><span class="dot"></span></div>
             </div>
         </div>
 
-        <!-- 3D Canvas Rendering Target -->
+        <!-- Floating Damage Overlay -->
+        <div id="damage-overlay"></div>
+
+        <!-- 3D Canvas Target -->
         <div id="game-canvas-container"></div>
 
-        <!-- Touch Controls Overlay -->
+        <!-- Touch Controls -->
         <div id="touch-controls">
             <div id="joystick-base">
                 <div id="joystick-stick"></div>
@@ -112,30 +84,10 @@
         </div>
     </div>
 
-    <!-- MODAL OVERLAYS -->
-
-    <!-- Main Menu Modal -->
-    <div id="menu-modal" class="modal-overlay hidden">
-        <div class="modal-box">
-            <h3>MAIN MENU</h3>
-            <button class="btn modal-btn">🛒 Shop</button>
-            <button class="btn modal-btn">⚙️ Settings</button>
-            <button id="logout-btn" class="btn modal-btn danger">🚪 Log Out</button>
-            <button id="close-menu-btn" class="btn modal-btn secondary">CLOSE</button>
-        </div>
-    </div>
-
-    <!-- Round Result Modal -->
-    <div id="round-result-modal" class="modal-overlay hidden">
-        <div class="modal-box compact">
-            <img id="round-result-img" src="" alt="Round Result" class="result-img">
-        </div>
-    </div>
-
-    <!-- Match Over Modal -->
+    <!-- 4. MATCH OVER MODAL -->
     <div id="match-over-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <img id="match-result-img" src="" alt="Match Result" class="result-img">
+            <h2 id="match-result-title">VICTORY!</h2>
             <div class="modal-actions">
                 <button id="rematch-btn" class="btn primary-btn">REMATCH</button>
                 <button id="home-return-btn" class="btn secondary">MAIN MENU</button>
@@ -143,7 +95,7 @@
         </div>
     </div>
 
-    <!-- Game Scripts -->
+    <!-- Scripts -->
     <script src="game3d.js"></script>
     <script src="script.js"></script>
 </body>
