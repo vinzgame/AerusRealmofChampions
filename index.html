@@ -6,7 +6,7 @@
     <title>Aerus: Realm of Champions</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- Three.js Engine & Loaders (CDN) -->
+    <!-- Three.js Engine & Loaders -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
@@ -108,7 +108,7 @@
         </main>
     </div>
 
-    <!-- 4. AUTHENTICATION SCREENS (SIGN IN / CREATE ACCOUNT) -->
+    <!-- 4. AUTHENTICATION SCREENS -->
     <div id="auth-screen" class="screen hidden">
         <div class="auth-card">
             <button id="auth-close-btn" class="close-x">✕</button>
@@ -247,12 +247,10 @@
         </main>
     </div>
 
-    <!-- 7. GAME PLAY SCREEN (3D CANVAS & HUD) -->
+    <!-- 7. GAME PLAY SCREEN -->
     <div id="game-screen" class="screen hidden">
-        <!-- 3D Render Target Canvas Container -->
         <div id="game-canvas-container"></div>
 
-        <!-- In-Game HUD -->
         <div id="game-hud">
             <div class="hud-player p1-hud">
                 <div class="p-info-bar">
@@ -276,7 +274,6 @@
             </div>
         </div>
 
-        <!-- Touch Controls -->
         <div id="touch-controls-layer">
             <div id="joystick-boundary">
                 <div id="joystick-knob"></div>
