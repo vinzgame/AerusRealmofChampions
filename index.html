@@ -63,7 +63,11 @@
       object-fit: contain;
       filter: drop-shadow(0px 2px 8px rgba(0, 0, 0, 0.8));
     }
-    .mode-btn {
+    .header-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .ui-btn {
       background: rgba(30, 41, 59, 0.85);
       border: 1px solid #38bdf8;
       color: #38bdf8;
@@ -220,7 +224,10 @@
       <!-- Game Logo & Mode Toggle Header -->
       <div class="center-header">
         <img src="image/mainlogo.png" alt="Aerus Logo" class="game-logo">
-        <button id="mode-toggle" class="mode-btn">Mode: VS Computer</button>
+        <div class="header-btns">
+          <button id="mode-toggle" class="ui-btn">VS Computer</button>
+          <button id="sound-toggle" class="ui-btn">🔊 Audio: ON</button>
+        </div>
       </div>
 
       <!-- Player 2 / Bot Health -->
@@ -266,20 +273,159 @@
     let isAiMode = true;
     let gameOver = false;
 
-    // Load Animated Sprite Sheets using embedded Data URIs for instant cross-origin loading
+    // --- RETRO SOUND & MUSIC SYNTHESIZER (WEB AUDIO API) ---
+    let audioCtx = null;
+    let soundEnabled = true;
+    let bgmInterval = null;
+    let bgmNoteIndex = 0;
+
+    // Simple 8-bit Background Music Melody Sequence (Frequencies in Hz)
+    const bgmMelody = [
+      164.81, 196.00, 220.00, 196.00, 164.81, 146.83, 164.81, 0,
+      130.81, 164.81, 196.00, 164.81, 130.81, 110.00, 130.81, 0
+    ];
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        startBGM();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Procedural Background Music Loop
+    function startBGM() {
+      if (bgmInterval) return;
+      bgmInterval = setInterval(() => {
+        if (!soundEnabled || !audioCtx || gameOver) return;
+        
+        const freq = bgmMelody[bgmNoteIndex];
+        bgmNoteIndex = (bgmNoteIndex + 1) % bgmMelody.length;
+
+        if (freq > 0) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime); // Soft background volume
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.18);
+        }
+      }, 200);
+    }
+
+    // Sword Swing Sound Effect
+    function playSwingSound() {
+      if (!soundEnabled) return;
+      initAudio();
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    // Hit Impact Sound Effect
+    function playHitSound() {
+      if (!soundEnabled) return;
+      initAudio();
+
+      const bufferSize = audioCtx.sampleRate * 0.1;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+      noise.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      noise.start();
+    }
+
+    // Victory Arpeggio Tone
+    function playVictorySound() {
+      if (!soundEnabled) return;
+      initAudio();
+
+      const notes = [261.63, 329.63, 392.00, 523.25]; // C - E - G - C
+      notes.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.1 + 0.2);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(audioCtx.currentTime + idx * 0.1);
+        osc.stop(audioCtx.currentTime + idx * 0.1 + 0.2);
+      });
+    }
+
+    // Defeat Low Tone
+    function playDefeatSound() {
+      if (!soundEnabled) return;
+      initAudio();
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+    }
+
+    // Load Animated Sprite Sheets using embedded Data URIs
     function createWarriorSprite(colorHex, glowHex) {
       const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
         <defs>
           <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        <!-- Body Base -->
         <rect x="75" y="60" width="50" height="70" rx="8" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
-        <!-- Head / Helmet -->
         <circle cx="100" cy="40" r="24" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
         <rect x="85" y="32" width="30" height="8" rx="3" fill="#0f172a"/>
-        <!-- Eyes / Visor -->
         <rect x="90" y="34" width="20" height="4" rx="2" fill="${glowHex}" filter="url(#glow)"/>
-        <!-- Sword -->
         <path d="M130 50 L180 20 L170 10 L120 40 Z" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/>
         <rect x="118" y="38" width="12" height="6" fill="#f59e0b"/>
       </svg>`;
@@ -311,14 +457,12 @@
           height: 50
         };
         this.facing = 'right';
-        this.animFrame = 0;
         this.animTimer = 0;
       }
 
       draw() {
         ctx.save();
 
-        // Handle Horizontal Flipping depending on Direction
         if (this.facing === 'left') {
           ctx.translate(this.position.x + this.width, this.position.y);
           ctx.scale(-1, 1);
@@ -326,23 +470,19 @@
           ctx.translate(this.position.x, this.position.y);
         }
 
-        // Bobbing & Swings based on state
         let yOffset = 0;
         let rotation = 0;
 
         if (Math.abs(this.velocity.x) > 0) {
-          // Running Animation Bounce
           this.animTimer += 0.2;
           yOffset = Math.sin(this.animTimer) * 4;
         }
 
         if (this.velocity.y !== 0) {
-          // Jump Tilt
           rotation = 0.08;
         }
 
         if (this.isAttacking) {
-          // Slash Forward Motion
           ctx.translate(10, 0);
           rotation = -0.15;
         }
@@ -350,7 +490,6 @@
         ctx.rotate(rotation);
         ctx.drawImage(this.sprite, 0, yOffset, this.width, this.height);
 
-        // Render Sword Swing Effect during Attack
         if (this.isAttacking) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
           ctx.beginPath();
@@ -388,6 +527,7 @@
       attack() {
         if (this.isAttacking || gameOver) return;
         this.isAttacking = true;
+        playSwingSound();
         setTimeout(() => {
           this.isAttacking = false;
         }, 150);
@@ -397,6 +537,7 @@
         this.health -= amount;
         if (this.health < 0) this.health = 0;
         this.healthBar.style.width = this.health + '%';
+        playHitSound();
       }
 
       reset(xPos) {
@@ -429,7 +570,6 @@
     });
     player2.facing = 'left';
 
-    // Inputs
     const keys = {
       a: { pressed: false },
       d: { pressed: false },
@@ -437,8 +577,9 @@
       ArrowRight: { pressed: false }
     };
 
-    // UI & Mode Control Elements
+    // UI & Buttons
     const modeBtn = document.getElementById('mode-toggle');
+    const soundBtn = document.getElementById('sound-toggle');
     const p2Label = document.getElementById('p2-label');
     const gameOverOverlay = document.getElementById('game-over-overlay');
     const resultBanner = document.getElementById('result-banner');
@@ -446,25 +587,25 @@
 
     modeBtn.addEventListener('click', () => {
       isAiMode = !isAiMode;
-      if (isAiMode) {
-        modeBtn.innerText = 'Mode: VS Computer';
-        p2Label.innerText = 'CPU (Rival AI)';
-      } else {
-        modeBtn.innerText = 'Mode: 2 Player Local';
-        p2Label.innerText = 'Champion 2 (P2)';
-      }
+      modeBtn.innerText = isAiMode ? 'VS Computer' : '2P Local';
+      p2Label.innerText = isAiMode ? 'CPU (Rival AI)' : 'Champion 2 (P2)';
     });
 
-    // Keyboard Listeners
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.innerText = soundEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+    });
+
+    // Keyboard Input
     window.addEventListener('keydown', (event) => {
       if (gameOver) return;
+      initAudio();
       switch (event.key) {
         case 'a': case 'A': keys.a.pressed = true; player1.facing = 'left'; break;
         case 'd': case 'D': keys.d.pressed = true; player1.facing = 'right'; break;
         case 'w': case 'W': if (player1.velocity.y === 0) player1.velocity.y = -14; break;
         case ' ': player1.attack(); break;
 
-        // Player 2 Manual Keys
         case 'ArrowLeft': if (!isAiMode) { keys.ArrowLeft.pressed = true; player2.facing = 'left'; } break;
         case 'ArrowRight': if (!isAiMode) { keys.ArrowRight.pressed = true; player2.facing = 'right'; } break;
         case 'ArrowUp': if (!isAiMode && player2.velocity.y === 0) player2.velocity.y = -14; break;
@@ -484,7 +625,7 @@
     // Touch Event Listeners
     function bindTouchButton(btnId, onPress, onRelease) {
       const btn = document.getElementById(btnId);
-      btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!gameOver) onPress(); });
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); if (!gameOver) onPress(); });
       btn.addEventListener('touchend', (e) => { e.preventDefault(); if (onRelease) onRelease(); });
     }
 
@@ -493,17 +634,12 @@
     bindTouchButton('btn-jump', () => { if (player1.velocity.y === 0) player1.velocity.y = -14; });
     bindTouchButton('btn-attack', () => { player1.attack(); });
 
-    // Computer Bot / AI Logic
+    // AI Logic
     function updateComputerAI() {
       if (!isAiMode || player2.health <= 0 || gameOver) return;
 
       const distanceToPlayer = player1.position.x - player2.position.x;
-
-      if (distanceToPlayer > 0) {
-        player2.facing = 'right';
-      } else {
-        player2.facing = 'left';
-      }
+      player2.facing = distanceToPlayer > 0 ? 'right' : 'left';
 
       if (Math.abs(distanceToPlayer) > 60) {
         player2.velocity.x = distanceToPlayer > 0 ? 3.5 : -3.5;
@@ -519,7 +655,6 @@
       }
     }
 
-    // Collision Helper
     function rectangularCollision({ rectangle1, rectangle2 }) {
       return (
         rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
@@ -529,7 +664,6 @@
       );
     }
 
-    // End Game Handler (Triggers victory.png or defeat.png)
     function checkGameOver() {
       if (gameOver) return;
 
@@ -537,14 +671,15 @@
         gameOver = true;
         resultBanner.src = 'image/victory.png';
         gameOverOverlay.style.display = 'flex';
+        playVictorySound();
       } else if (player1.health <= 0) {
         gameOver = true;
         resultBanner.src = 'image/defeat.png';
         gameOverOverlay.style.display = 'flex';
+        playDefeatSound();
       }
     }
 
-    // Restart System
     restartBtn.addEventListener('click', () => {
       gameOver = false;
       gameOverOverlay.style.display = 'none';
@@ -553,12 +688,11 @@
       player2.facing = 'left';
     });
 
-    // Main Game Loop
+    // Game Loop
     function animate() {
       window.requestAnimationFrame(animate);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Arena Stage Ground
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
 
@@ -566,11 +700,9 @@
       if (!isAiMode) player2.velocity.x = 0;
 
       if (!gameOver) {
-        // Player 1 Movement
         if (keys.a.pressed) player1.velocity.x = -5;
         else if (keys.d.pressed) player1.velocity.x = 5;
 
-        // Player 2 Manual Movement / AI
         if (!isAiMode) {
           if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
           else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
@@ -583,13 +715,11 @@
       player2.update();
 
       if (!gameOver) {
-        // Check Hits (P1 -> P2)
         if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
           player1.isAttacking = false;
           player2.takeDamage(10);
         }
 
-        // Check Hits (P2 -> P1)
         if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
           player2.isAttacking = false;
           player1.takeDamage(10);
