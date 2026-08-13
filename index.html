@@ -2,308 +2,200 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Aerus: Realm of Champions</title>
-  
-  <!-- Favicon / Tab Icon -->
   <link rel="icon" type="image/png" href="image/mainlogo.png">
+  <link rel="stylesheet" href="style.css">
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    body {
-      background-color: #0b0e14;
-      color: #fff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      overflow: hidden;
-      touch-action: manipulation;
-    }
-    #game-container {
-      position: relative;
-      border: 3px solid #1e293b;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-      border-radius: 8px;
-      overflow: hidden;
-      max-width: 100vw;
-    }
-    
-    /* UI Layer & Logo Header */
-    .ui-layer {
-      position: absolute;
-      top: 10px;
-      left: 0;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 15px;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .center-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      pointer-events: auto;
-    }
-    .game-logo {
-      height: 40px;
-      width: auto;
-      object-fit: contain;
-      filter: drop-shadow(0px 2px 8px rgba(0, 0, 0, 0.8));
-    }
-    .header-btns {
-      display: flex;
-      gap: 6px;
-    }
-    .ui-btn {
-      background: rgba(30, 41, 59, 0.85);
-      border: 1px solid #38bdf8;
-      color: #38bdf8;
-      font-size: 10px;
-      font-weight: bold;
-      padding: 3px 8px;
-      border-radius: 12px;
-      cursor: pointer;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .health-box {
-      width: 32%;
-      background: rgba(15, 23, 42, 0.85);
-      border: 2px solid #334155;
-      padding: 5px;
-      border-radius: 6px;
-    }
-    .player-name {
-      font-size: 11px;
-      font-weight: bold;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .p1-name { color: #38bdf8; }
-    .p2-name { color: #f43f5e; text-align: right; }
-    .bar-bg {
-      background-color: #0f172a;
-      height: 16px;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%;
-      width: 100%;
-      transition: width 0.1s linear;
-    }
-    #p1-health { background-color: #38bdf8; }
-    #p2-health { background-color: #f43f5e; float: right; }
-
-    canvas {
-      display: block;
-      background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
-      width: 100%;
-      height: auto;
-    }
-
-    /* On-Screen Mobile Controls */
-    #mobile-controls {
-      position: absolute;
-      bottom: 15px;
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      padding: 0 20px;
-      box-sizing: border-box;
-      z-index: 20;
-    }
-    .control-group {
-      display: flex;
-      gap: 12px;
-    }
-    .touch-btn {
-      width: 55px;
-      height: 55px;
-      background: rgba(30, 41, 59, 0.75);
-      border: 2px solid rgba(148, 163, 184, 0.5);
-      border-radius: 50%;
-      color: #ffffff;
-      font-size: 18px;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-      touch-action: none;
-    }
-    .touch-btn:active {
-      background: rgba(56, 189, 248, 0.6);
-      border-color: #38bdf8;
-      transform: scale(0.95);
-    }
-    .btn-attack {
-      background: rgba(244, 63, 94, 0.35);
-      border-color: rgba(244, 63, 94, 0.7);
-    }
-    .btn-attack:active {
-      background: rgba(244, 63, 94, 0.8);
-      border-color: #f43f5e;
-    }
-
-    /* Victory/Defeat Game Over Overlay */
-    #game-over-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(11, 14, 20, 0.85);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 30;
-      backdrop-filter: blur(6px);
-    }
-    #result-banner {
-      max-width: 80%;
-      max-height: 50%;
-      object-fit: contain;
-      filter: drop-shadow(0 0 20px rgba(0,0,0,0.9));
-      margin-bottom: 20px;
-    }
-    .restart-btn {
-      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
-      color: #fff;
-      font-size: 16px;
-      font-weight: bold;
-      padding: 12px 30px;
-      border: none;
-      border-radius: 25px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      transition: transform 0.1s ease;
-    }
-    .restart-btn:active {
-      transform: scale(0.95);
-    }
-
-    .controls-hint {
-      margin-top: 12px;
-      font-size: 12px;
-      color: #94a3b8;
-      text-align: center;
-    }
-
-    /* MANDATORY LANDSCAPE OVERLAY FOR MOBILE */
-    #rotate-warning {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: #0b0e14;
-      z-index: 9999;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 20px;
-    }
-    #rotate-warning p {
-      font-size: 18px;
-      color: #38bdf8;
-      font-weight: bold;
-      margin-top: 10px;
-    }
-
-    /* Force landscape view on mobile screens */
-    @media screen and (max-width: 900px) and (orientation: portrait) {
-      #rotate-warning {
-        display: flex;
-      }
-      #game-container, .controls-hint {
-        display: none;
-      }
-    }
-  </style>
+  <!-- Three.js CDN for 3D Graphics -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-  <!-- Screen Orientation Warning -->
-  <div id="rotate-warning">
-    <div style="font-size: 40px;">🔄</div>
-    <p>Please rotate your phone to Landscape mode to play!</p>
+  <!-- Mandatory Mobile Landscape Warning -->
+  <div id="rotate-warning" class="screen-overlay">
+    <div class="rotate-icon">🔄</div>
+    <h2>Landscape Orientation Required</h2>
+    <p>Please turn your mobile device sideways to play Aerus!</p>
   </div>
 
-  <div id="game-container">
-    <div class="ui-layer">
+  <!-- 1. LOADING SCREEN -->
+  <section id="loading-screen" class="app-screen active">
+    <div class="loading-content">
+      <img src="image/mainlogo.png" alt="Aerus Logo" class="pulse-logo" onerror="this.src='https://via.placeholder.com/220x100?text=AERUS'">
+      <div class="loading-bar-container">
+        <div id="loading-bar" class="loading-bar-fill"></div>
+      </div>
+      <p id="loading-text">Loading Realm Assets... 0%</p>
+    </div>
+  </section>
+
+  <!-- 2. LOGIN / SIGNUP SCREEN -->
+  <section id="auth-screen" class="app-screen hidden">
+    <div class="auth-card">
+      <img src="image/mainlogo.png" alt="Aerus Logo" class="auth-logo" onerror="this.src='https://via.placeholder.com/180x80?text=AERUS'">
+
+      <!-- LOGIN FORM -->
+      <form id="login-form" class="auth-form">
+        <h2>Warrior Sign In</h2>
+        <div class="input-group">
+          <input type="text" id="login-username" placeholder="Username" required>
+        </div>
+        <div class="input-group">
+          <input type="password" id="login-password" placeholder="Password" required>
+        </div>
+        <button type="submit" class="primary-btn">ENTER REALM</button>
+        <p class="auth-toggle-text">New Warrior? <span id="show-signup">Create Account</span></p>
+      </form>
+
+      <!-- SIGNUP FORM -->
+      <form id="signup-form" class="auth-form hidden">
+        <h2>Create Account</h2>
+        <div class="input-group">
+          <input type="text" id="signup-displayname" placeholder="Display Name" required>
+        </div>
+        <div class="input-group">
+          <input type="text" id="signup-username" placeholder="Username" required>
+        </div>
+        <div class="input-group">
+          <input type="password" id="signup-password" placeholder="Password" required>
+        </div>
+        <div class="input-group">
+          <input type="password" id="signup-repeat-password" placeholder="Repeat Password" required>
+        </div>
+        <button type="submit" class="primary-btn">REGISTER</button>
+        <p class="auth-toggle-text">Already have an account? <span id="show-login">Sign In</span></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- 3. HOME SCREEN (CHARACTER SELECT & MENU) -->
+  <section id="home-screen" class="app-screen hidden">
+    <!-- Top Header -->
+    <header class="home-header">
+      <button id="menu-btn" class="icon-btn">☰ MENU</button>
+      <div class="coins-display">
+        <span class="coin-icon">🪙</span>
+        <span id="coin-count">1,000</span>
+      </div>
+    </header>
+
+    <!-- Main Home Split View -->
+    <main class="home-layout">
+      <!-- Left: Character Selection -->
+      <div class="char-select-area">
+        <h3 class="section-title">SELECT CHAMPION</h3>
+        
+        <div class="char-preview-card">
+          <button id="char-prev" class="nav-arrow">◀</button>
+          
+          <div class="char-info">
+            <div id="char-avatar" class="char-avatar-3d"></div>
+            <h2 id="char-name">Aerus Skyblade</h2>
+            <p id="char-desc">Agile fighter specializing in swift sword combos and speed.</p>
+            <button id="select-char-btn" class="select-btn">SELECTED</button>
+          </div>
+
+          <button id="char-next" class="nav-arrow">▶</button>
+        </div>
+      </div>
+
+      <!-- Right: Play Button -->
+      <div class="play-area">
+        <button id="play-btn" class="play-btn">
+          <span>BATTLE</span>
+        </button>
+      </div>
+    </main>
+
+    <!-- Menu Drawer Modal -->
+    <div id="menu-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h3>MAIN MENU</h3>
+        <button id="shop-btn" class="menu-option">🛒 Shop</button>
+        <button id="settings-btn" class="menu-option">⚙ Settings</button>
+        <button id="logout-btn" class="menu-option danger">🚪 Log Out</button>
+        <button id="close-menu-btn" class="secondary-btn">Close</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. GAME SCREEN (1v1 COMBAT ARENA) -->
+  <section id="game-screen" class="app-screen hidden">
+    <!-- Top Combat UI -->
+    <div class="combat-ui">
       <!-- Player 1 Health -->
-      <div class="health-box">
-        <div class="player-name p1-name">Champion 1 (Aerus)</div>
-        <div class="bar-bg">
-          <div id="p1-health" class="bar-fill"></div>
+      <div class="health-card left">
+        <div class="fighter-header">
+          <span id="p1-display-name">Player 1</span>
+          <span id="p1-hp-text">100%</span>
+        </div>
+        <div class="hp-bar-bg">
+          <div id="p1-hp-bar" class="hp-bar-fill p1"></div>
+        </div>
+        <div class="score-dots" id="p1-dots">
+          <span class="dot"></span><span class="dot"></span>
         </div>
       </div>
 
-      <!-- Game Logo & Mode Toggle Header -->
-      <div class="center-header">
-        <img src="image/mainlogo.png" alt="Aerus Logo" class="game-logo">
-        <div class="header-btns">
-          <button id="mode-toggle" class="ui-btn">VS Computer</button>
-          <button id="sound-toggle" class="ui-btn">🔊 Audio: ON</button>
-        </div>
+      <!-- Center Logo & Round Info -->
+      <div class="center-banner">
+        <img src="image/mainlogo.png" alt="Aerus" class="combat-logo" onerror="this.src='https://via.placeholder.com/100x40?text=AERUS'">
+        <div id="round-indicator" class="round-badge">ROUND 1</div>
       </div>
 
-      <!-- Player 2 / Bot Health -->
-      <div class="health-box">
-        <div class="player-name p2-name" id="p2-label">CPU (Rival AI)</div>
-        <div class="bar-bg">
-          <div id="p2-health" class="bar-fill"></div>
+      <!-- Player 2 / Opponent Health -->
+      <div class="health-card right">
+        <div class="fighter-header">
+          <span id="p2-hp-text">100%</span>
+          <span id="p2-display-name">Shadow Boss</span>
+        </div>
+        <div class="hp-bar-bg">
+          <div id="p2-hp-bar" class="hp-bar-fill p2"></div>
+        </div>
+        <div class="score-dots right-dots" id="p2-dots">
+          <span class="dot"></span><span class="dot"></span>
         </div>
       </div>
     </div>
 
-    <!-- Victory / Defeat Overlay Popup -->
-    <div id="game-over-overlay">
-      <img id="result-banner" src="" alt="Game Result">
-      <button class="restart-btn" id="restart-btn">Play Again</button>
+    <!-- 3D Canvas Container -->
+    <div id="game-canvas-container"></div>
+
+    <!-- Controls Overlay -->
+    <div class="controls-overlay">
+      <!-- Left: Round Virtual Joystick -->
+      <div id="joystick-zone">
+        <div id="joystick-base">
+          <div id="joystick-stick"></div>
+        </div>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="action-buttons">
+        <button id="btn-jump" class="action-btn jump-btn">JUMP</button>
+        <button id="btn-attack" class="action-btn attack-btn">ATTACK</button>
+      </div>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <!-- Round Result Overlay Banner (Victory / Defeat per round) -->
+    <div id="round-result-modal" class="modal-overlay hidden">
+      <img id="round-result-img" src="" alt="Round Result">
+    </div>
 
-    <!-- On-Screen Touch Buttons for Mobile -->
-    <div id="mobile-controls">
-      <div class="control-group">
-        <div class="touch-btn" id="btn-left">◀</div>
-        <div class="touch-btn" id="btn-right">▶</div>
-      </div>
-      <div class="control-group">
-        <div class="touch-btn" id="btn-jump">▲</div>
-        <div class="touch-btn btn-attack" id="btn-attack">⚔</div>
+    <!-- Match Over Overlay Popup (Win Match / Lose Match) -->
+    <div id="match-over-modal" class="modal-overlay hidden">
+      <div class="match-over-card">
+        <img id="match-result-img" src="" alt="Match Result">
+        <div class="match-buttons">
+          <button id="rematch-btn" class="primary-btn">PLAY AGAIN</button>
+          <button id="home-return-btn" class="secondary-btn">MAIN MENU</button>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="controls-hint">
-    <strong>P1 Controls:</strong> A/D or Touch ◀/▶ (Move) | W or ▲ (Jump) | SPACE or ⚔ (Attack)
-  </div>
-
-  <!-- External Script Reference -->
   <script src="script.js"></script>
+  <script src="game3d.js"></script>
 </body>
 </html>
