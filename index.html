@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aerus: Realm of Champions</title>
+  
+  <!-- Favicon / Tab Icon -->
+  <link rel="icon" type="image/png" href="image/mainlogo.png">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background-color: #0b0e14;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    #game-container {
+      position: relative;
+      border: 3px solid #1e293b;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      border-radius: 8px;
+      overflow: hidden;
+      max-width: 100vw;
+    }
+    
+    /* UI Layer & Logo Header */
+    .ui-layer {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 15px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .game-logo {
+      height: 45px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0px 2px 8px rgba(0, 0, 0, 0.8));
+    }
+    .health-box {
+      width: 35%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid #334155;
+      padding: 5px;
+      border-radius: 6px;
+    }
+    .player-name {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .p1-name { color: #38bdf8; }
+    .p2-name { color: #f43f5e; text-align: right; }
+    .bar-bg {
+      background-color: #0f172a;
+      height: 16px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+    #p1-health { background-color: #38bdf8; }
+    #p2-health { background-color: #f43f5e; float: right; }
+
+    canvas {
+      display: block;
+      background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+      width: 100%;
+      height: auto;
+    }
+
+    /* On-Screen Mobile Controls */
+    #mobile-controls {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-sizing: border-box;
+      z-index: 20;
+    }
+    .control-group {
+      display: flex;
+      gap: 12px;
+    }
+    .touch-btn {
+      width: 55px;
+      height: 55px;
+      background: rgba(30, 41, 59, 0.75);
+      border: 2px solid rgba(148, 163, 184, 0.5);
+      border-radius: 50%;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      touch-action: none;
+    }
+    .touch-btn:active {
+      background: rgba(56, 189, 248, 0.6);
+      border-color: #38bdf8;
+      transform: scale(0.95);
+    }
+    .btn-attack {
+      background: rgba(244, 63, 94, 0.35);
+      border-color: rgba(244, 63, 94, 0.7);
+    }
+    .btn-attack:active {
+      background: rgba(244, 63, 94, 0.8);
+      border-color: #f43f5e;
+    }
+
+    .controls-hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div class="ui-layer">
+      <!-- Player 1 Health -->
+      <div class="health-box">
+        <div class="player-name p1-name">Champion 1 (Aerus)</div>
+        <div class="bar-bg">
+          <div id="p1-health" class="bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Game Logo Header -->
+      <img src="image/mainlogo.png" alt="Aerus: Realm of Champions Logo" class="game-logo">
+
+      <!-- Player 2 Health -->
+      <div class="health-box">
+        <div class="player-name p2-name">Champion 2 (Rival)</div>
+        <div class="bar-bg">
+          <div id="p2-health" class="bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+    <!-- On-Screen Touch Buttons for Mobile -->
+    <div id="mobile-controls">
+      <div class="control-group">
+        <div class="touch-btn" id="btn-left">◀</div>
+        <div class="touch-btn" id="btn-right">▶</div>
+      </div>
+      <div class="control-group">
+        <div class="touch-btn" id="btn-jump">▲</div>
+        <div class="touch-btn btn-attack" id="btn-attack">⚔</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <strong>Keyboard P1:</strong> A/D (Move) | W (Jump) | SPACE (Attack) &nbsp;|&nbsp; 
+    <strong>P2:</strong> ←/→ (Move) | ↑ (Jump) | ENTER (Attack)
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const GRAVITY = 0.6;
+    const GROUND_Y = 320;
+
+    class Fighter {
+      constructor({ position, velocity, color, attackBoxOffset, name, healthBarId }) {
+        this.position = position;
+        this.velocity = velocity;
+        this.width = 50;
+        this.height = 100;
+        this.color = color;
+        this.name = name;
+        this.health = 100;
+        this.healthBar = document.getElementById(healthBarId);
+        
+        this.isAttacking = false;
+        this.attackBox = {
+          position: { x: this.position.x, y: this.position.y },
+          offset: attackBoxOffset,
+          width: 80,
+          height: 40
+        };
+        this.facing = 'right';
+      }
+
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+
+        if (this.isAttacking) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.fillRect(
+            this.attackBox.position.x,
+            this.attackBox.position.y,
+            this.attackBox.width,
+            this.attackBox.height
+          );
+        }
+      }
+
+      update() {
+        this.draw();
+
+        if (this.facing === 'right') {
+          this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
+        } else {
+          this.attackBox.position.x = this.position.x - this.attackBox.width;
+        }
+        this.attackBox.position.y = this.position.y + this.attackBox.offset.y;
+
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+
+        if (this.position.y + this.height + this.velocity.y >= GROUND_Y) {
+          this.velocity.y = 0;
+          this.position.y = GROUND_Y - this.height;
+        } else {
+          this.velocity.y += GRAVITY;
+        }
+
+        if (this.position.x < 0) this.position.x = 0;
+        if (this.position.x + this.width > canvas.width) this.position.x = canvas.width - this.width;
+      }
+
+      attack() {
+        if (this.isAttacking) return;
+        this.isAttacking = true;
+        setTimeout(() => {
+          this.isAttacking = false;
+        }, 100);
+      }
+
+      takeDamage(amount) {
+        this.health -= amount;
+        if (this.health < 0) this.health = 0;
+        this.healthBar.style.width = this.health + '%';
+      }
+    }
+
+    const player1 = new Fighter({
+      position: { x: 100, y: 100 },
+      velocity: { x: 0, y: 0 },
+      color: '#38bdf8',
+      attackBoxOffset: { x: 50, y: 20 },
+      name: 'Aerus',
+      healthBarId: 'p1-health'
+    });
+
+    const player2 = new Fighter({
+      position: { x: 650, y: 100 },
+      velocity: { x: 0, y: 0 },
+      color: '#f43f5e',
+      attackBoxOffset: { x: 0, y: 20 },
+      name: 'Rival',
+      healthBarId: 'p2-health'
+    });
+    player2.facing = 'left';
+
+    const keys = {
+      a: { pressed: false },
+      d: { pressed: false },
+      ArrowLeft: { pressed: false },
+      ArrowRight: { pressed: false }
+    };
+
+    window.addEventListener('keydown', (event) => {
+      switch (event.key) {
+        case 'a': case 'A': keys.a.pressed = true; player1.facing = 'left'; break;
+        case 'd': case 'D': keys.d.pressed = true; player1.facing = 'right'; break;
+        case 'w': case 'W': if (player1.velocity.y === 0) player1.velocity.y = -14; break;
+        case ' ': player1.attack(); break;
+
+        case 'ArrowLeft': keys.ArrowLeft.pressed = true; player2.facing = 'left'; break;
+        case 'ArrowRight': keys.ArrowRight.pressed = true; player2.facing = 'right'; break;
+        case 'ArrowUp': if (player2.velocity.y === 0) player2.velocity.y = -14; break;
+        case 'Enter': player2.attack(); break;
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      switch (event.key) {
+        case 'a': case 'A': keys.a.pressed = false; break;
+        case 'd': case 'D': keys.d.pressed = false; break;
+        case 'ArrowLeft': keys.ArrowLeft.pressed = false; break;
+        case 'ArrowRight': keys.ArrowRight.pressed = false; break;
+      }
+    });
+
+    function bindTouchButton(btnId, onPress, onRelease) {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); onPress(); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); if (onRelease) onRelease(); });
+    }
+
+    bindTouchButton('btn-left', () => { keys.a.pressed = true; player1.facing = 'left'; }, () => { keys.a.pressed = false; });
+    bindTouchButton('btn-right', () => { keys.d.pressed = true; player1.facing = 'right'; }, () => { keys.d.pressed = false; });
+    bindTouchButton('btn-jump', () => { if (player1.velocity.y === 0) player1.velocity.y = -14; });
+    bindTouchButton('btn-attack', () => { player1.attack(); });
+
+    function rectangularCollision({ rectangle1, rectangle2 }) {
+      return (
+        rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
+        rectangle1.attackBox.position.x <= rectangle2.position.x + rectangle2.width &&
+        rectangle1.attackBox.position.y + rectangle1.attackBox.height >= rectangle2.position.y &&
+        rectangle1.attackBox.position.y <= rectangle2.position.y + rectangle2.height
+      );
+    }
+
+    function animate() {
+      window.requestAnimationFrame(animate);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+      player1.velocity.x = 0;
+      player2.velocity.x = 0;
+
+      if (keys.a.pressed) player1.velocity.x = -5;
+      else if (keys.d.pressed) player1.velocity.x = 5;
+
+      if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
+      else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
+
+      player1.update();
+      player2.update();
+
+      if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
+        player1.isAttacking = false;
+        player2.takeDamage(10);
+      }
+
+      if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
+        player2.isAttacking = false;
+        player1.takeDamage(10);
+      }
+    }
+
+    animate();
+  </script>
+</body>
+</html>
