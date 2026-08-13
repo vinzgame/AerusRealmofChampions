@@ -1,17 +1,17 @@
-// --- AERUS THREE.JS 3D COMBAT & JOYSTICK ENGINE ---
+// --- AERUS: REALM OF CHAMPIONS - FULL 3D GAME ENGINE ---
 
 let scene, camera, renderer;
 let player1, player2;
 let p1Health = 100, p2Health = 100;
 let isRoundActive = false;
 
-// Joystick & Virtual Input Vectors
 const joystickVector = { x: 0, y: 0 };
 let isAttacking = false;
 
 window.init3DGame = function(selectedChar) {
   const container = document.getElementById('game-canvas-container');
-  container.innerHTML = ''; // Reset canvas if re-entering
+  if (!container) return;
+  container.innerHTML = '';
 
   // Scene & Camera
   scene = new THREE.Scene();
@@ -21,7 +21,7 @@ window.init3DGame = function(selectedChar) {
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 4, 14);
 
-  // Renderer
+  // WebGL Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -36,7 +36,7 @@ window.init3DGame = function(selectedChar) {
   dirLight.castShadow = true;
   scene.add(dirLight);
 
-  // Ground Arena
+  // Arena Ground
   const groundGeo = new THREE.PlaneGeometry(30, 10);
   const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
   const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -44,19 +44,19 @@ window.init3DGame = function(selectedChar) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Spawn Champions
-  player1 = create3DFighter(selectedChar.color, -4);
-  player2 = create3DFighter(0xe11d48, 4);
+  // Spawn Fighters
+  const charColor = selectedChar ? selectedChar.color : 0x38bdf8;
+  player1 = createFighterMesh(charColor, -4);
+  player2 = createFighterMesh(0xe11d48, 4);
 
   setupJoystick();
-  setupButtons();
+  setupActionButtons();
 
   isRoundActive = true;
   animate3D();
 };
 
-// Create 3D Modular Fighter Mesh
-function create3DFighter(colorHex, startX) {
+function createFighterMesh(colorHex, startX) {
   const group = new THREE.Group();
 
   // Torso
@@ -75,11 +75,11 @@ function create3DFighter(colorHex, startX) {
   group.add(head);
 
   // Weapon
-  const swordGeo = new THREE.BoxGeometry(0.1, 1.4, 0.1);
-  const swordMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8 });
-  const sword = new THREE.Mesh(swordGeo, swordMat);
-  sword.position.set(0.6, 1.4, 0.4);
-  group.add(sword);
+  const weaponGeo = new THREE.BoxGeometry(0.1, 1.4, 0.1);
+  const weaponMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8 });
+  const weapon = new THREE.Mesh(weaponGeo, weaponMat);
+  weapon.position.set(0.6, 1.4, 0.4);
+  group.add(weapon);
 
   group.position.set(startX, 0, 0);
   group.userData = { velocityY: 0, isJumping: false, facingRight: startX < 0 };
@@ -88,12 +88,12 @@ function create3DFighter(colorHex, startX) {
   return group;
 }
 
-// Round Virtual Joystick Math Setup
 function setupJoystick() {
   const base = document.getElementById('joystick-base');
   const stick = document.getElementById('joystick-stick');
-  const maxRadius = 35;
+  if (!base || !stick) return;
 
+  const maxRadius = 35;
   let touchId = null;
   let baseRect = null;
 
@@ -142,105 +142,113 @@ function setupJoystick() {
   window.addEventListener('touchcancel', resetJoystick);
 }
 
-// Action Button Listeners
-function setupButtons() {
+function setupActionButtons() {
   const jumpBtn = document.getElementById('btn-jump');
   const attackBtn = document.getElementById('btn-attack');
 
-  jumpBtn.onclick = () => {
-    if (player1 && !player1.userData.isJumping) {
-      player1.userData.velocityY = 0.35;
-      player1.userData.isJumping = true;
-    }
-  };
+  if (jumpBtn) {
+    jumpBtn.onclick = () => {
+      if (player1 && !player1.userData.isJumping) {
+        player1.userData.velocityY = 0.35;
+        player1.userData.isJumping = true;
+      }
+    };
+  }
 
-  attackBtn.onclick = () => {
-    if (player1 && !isAttacking) {
-      isAttacking = true;
-      // Quick Attack Translation
-      player1.position.x += player1.userData.facingRight ? 0.6 : -0.6;
-      checkHit(player1, player2, 'p2');
+  if (attackBtn) {
+    attackBtn.onclick = () => {
+      if (player1 && !isAttacking) {
+        isAttacking = true;
+        player1.position.x += player1.userData.facingRight ? 0.6 : -0.6;
+        checkHit(player1, player2, 'p2');
 
-      setTimeout(() => {
-        if (player1) player1.position.x -= player1.userData.facingRight ? 0.6 : -0.6;
-        isAttacking = false;
-      }, 150);
-    }
-  };
+        setTimeout(() => {
+          if (player1) player1.position.x -= player1.userData.facingRight ? 0.6 : -0.6;
+          isAttacking = false;
+        }, 150);
+      }
+    };
+  }
 }
 
-// Hit Box Range Check
 function checkHit(attacker, defender, targetTag) {
   const dist = attacker.position.distanceTo(defender.position);
   if (dist < 2.2) {
     if (targetTag === 'p2') {
       p2Health = Math.max(0, p2Health - 15);
-      document.getElementById('p2-hp-bar').style.width = p2Health + '%';
-      document.getElementById('p2-hp-text').innerText = p2Health + '%';
+      const bar = document.getElementById('p2-hp-bar');
+      const text = document.getElementById('p2-hp-text');
+      if (bar) bar.style.width = p2Health + '%';
+      if (text) text.innerText = p2Health + '%';
     } else {
       p1Health = Math.max(0, p1Health - 12);
-      document.getElementById('p1-hp-bar').style.width = p1Health + '%';
-      document.getElementById('p1-hp-text').innerText = p1Health + '%';
+      const bar = document.getElementById('p1-hp-bar');
+      const text = document.getElementById('p1-hp-text');
+      if (bar) bar.style.width = p1Health + '%';
+      if (text) text.innerText = p1Health + '%';
     }
 
     if (p1Health <= 0 || p2Health <= 0) {
       isRoundActive = false;
-      window.handleRoundEnd(p1Health > 0 ? 'p1' : 'p2');
+      if (window.handleRoundEnd) {
+        window.handleRoundEnd(p1Health > 0 ? 'p1' : 'p2');
+      }
     }
   }
 }
 
-// Reset positions between rounds
 window.restartRound = function() {
   p1Health = 100;
   p2Health = 100;
-  document.getElementById('p1-hp-bar').style.width = '100%';
-  document.getElementById('p2-hp-bar').style.width = '100%';
-  document.getElementById('p1-hp-text').innerText = '100%';
-  document.getElementById('p2-hp-text').innerText = '100%';
+  const p1Bar = document.getElementById('p1-hp-bar');
+  const p2Bar = document.getElementById('p2-hp-bar');
+  const p1Text = document.getElementById('p1-hp-text');
+  const p2Text = document.getElementById('p2-hp-text');
+
+  if (p1Bar) p1Bar.style.width = '100%';
+  if (p2Bar) p2Bar.style.width = '100%';
+  if (p1Text) p1Text.innerText = '100%';
+  if (p2Text) p2Text.innerText = '100%';
 
   if (player1) player1.position.set(-4, 0, 0);
   if (player2) player2.position.set(4, 0, 0);
   isRoundActive = true;
 };
 
-// Main 3D Animation Loop
 function animate3D() {
   if (!renderer) return;
   requestAnimationFrame(animate3D);
 
   if (isRoundActive && player1 && player2) {
-    // Player 1 Joystick Movement
+    // Player Joystick Movement
     player1.position.x += joystickVector.x * 0.12;
     player1.position.x = Math.max(-12, Math.min(12, player1.position.x));
 
-    // Player 1 Jumping Physics
+    // Player Jump Gravity Physics
     if (player1.userData.isJumping) {
       player1.position.y += player1.userData.velocityY;
-      player1.userData.velocityY -= 0.02; // Gravity
+      player1.userData.velocityY -= 0.02;
       if (player1.position.y <= 0) {
         player1.position.y = 0;
         player1.userData.isJumping = false;
       }
     }
 
-    // AI Opponent Logic
+    // AI Opponent Movement & Attack Logic
     const distToPlayer = player1.position.x - player2.position.x;
     if (Math.abs(distToPlayer) > 1.8) {
       player2.position.x += distToPlayer > 0 ? 0.04 : -0.04;
     } else if (Math.random() < 0.03) {
-      // AI Random Attack
       checkHit(player2, player1, 'p1');
     }
 
-    // Camera follow midpoint
+    // Dynamic Camera Tracking
     camera.position.x = (player1.position.x + player2.position.x) / 2;
   }
 
   renderer.render(scene, camera);
 }
 
-// Window Resize Handling
 window.addEventListener('resize', () => {
   if (camera && renderer) {
     camera.aspect = window.innerWidth / window.innerHeight;
