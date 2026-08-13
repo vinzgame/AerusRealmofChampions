@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Cordova)
 
 on:
   push:
@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository code
-      - name: Checkout Repository
+      # 1. Checkout Repository Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       # 2. Setup Node.js
@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 20
 
-      # 3. Setup Java JDK 17
+      # 3. Setup Java JDK 17 (Required for modern Android builds)
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -33,25 +33,37 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Initialize & Sync Capacitor Automatically
-      - name: Initialize Capacitor & Add Android
-        run: |
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "Aerus Realm of Champions" "com.aerus.game" --web-dir "."
-          npx cap add android
-          npx cap sync android
+      # 5. Install Cordova Globally
+      - name: Install Cordova CLI
+        run: npm install -g cordova
 
-      # 6. Build Debug APK using Gradle
-      - name: Build Gradle Debug APK
+      # 6. Initialize Cordova Project & Copy Web Assets
+      - name: Build Cordova Android Project
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          # Create a temporary Cordova project structure
+          cordova create cordovaApp com.aerus.game "Aerus Realm of Champions"
+          
+          # Remove default Cordova boilerplate web files
+          rm -rf cordovaApp/www/*
+          
+          # Copy all your game assets (index.html, game3d.js, script.js, style.css, image/) into www/
+          cp -r index.html style.css game3d.js script.js image cordovaApp/www/
+          
+          # Change directory into the Cordova app
+          cd cordovaApp
+          
+          # Add the Android platform to Cordova
+          cordova platform add android
 
-      # 7. Upload APK Artifact
-      - name: Upload Built APK
+      # 7. Build Debug APK
+      - name: Compile APK with Cordova
+        run: |
+          cd cordovaApp
+          cordova build android --debug
+
+      # 8. Upload the Built APK as an Artifact
+      - name: Upload Cordova APK
         uses: actions/upload-artifact@v4
         with:
-          name: Aerus-RealmOfChampions-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Aerus-RealmOfChampions-Cordova-APK
+          path: cordovaApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
