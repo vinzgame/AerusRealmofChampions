@@ -1,465 +1,239 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// --- AERUS GAME STATE & UI NAVIGATION ENGINE ---
 
-const GRAVITY = 0.6;
-const GROUND_Y = 320;
-let isAiMode = true;
-let gameOver = false;
-
-// --- RETRO SOUND & MUSIC SYNTHESIZER (WEB AUDIO API) ---
-let audioCtx = null;
-let soundEnabled = true;
-let bgmInterval = null;
-let bgmNoteIndex = 0;
-
-// Simple 8-bit Background Music Melody Sequence (Frequencies in Hz)
-const bgmMelody = [
-  164.81, 196.00, 220.00, 196.00, 164.81, 146.83, 164.81, 0,
-  130.81, 164.81, 196.00, 164.81, 130.81, 110.00, 130.81, 0
-];
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    startBGM();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-}
-
-// Procedural Background Music Loop
-function startBGM() {
-  if (bgmInterval) return;
-  bgmInterval = setInterval(() => {
-    if (!soundEnabled || !audioCtx || gameOver) return;
-    
-    const freq = bgmMelody[bgmNoteIndex];
-    bgmNoteIndex = (bgmNoteIndex + 1) % bgmMelody.length;
-
-    if (freq > 0) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-      gain.gain.setValueAtTime(0.04, audioCtx.currentTime); // Soft background volume
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.18);
+const appState = {
+  currentUser: null,
+  coins: 1000,
+  selectedCharIndex: 0,
+  p1Wins: 0,
+  p2Wins: 0,
+  currentRound: 1,
+  characters: [
+    {
+      name: "Aerus Skyblade",
+      desc: "Agile knight wielding a fast energy blade.",
+      color: 0x38bdf8
+    },
+    {
+      name: "Pyra Flamefist",
+      desc: "Heavy striking brawler with explosive power.",
+      color: 0xf97316
     }
-  }, 200);
-}
+  ]
+};
 
-// Sword Swing Sound Effect
-function playSwingSound() {
-  if (!soundEnabled) return;
-  initAudio();
+// DOM References
+const screens = {
+  loading: document.getElementById('loading-screen'),
+  auth: document.getElementById('auth-screen'),
+  home: document.getElementById('home-screen'),
+  game: document.getElementById('game-screen')
+};
 
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.12);
-
-  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.12);
-}
-
-// Hit Impact Sound Effect
-function playHitSound() {
-  if (!soundEnabled) return;
-  initAudio();
-
-  const bufferSize = audioCtx.sampleRate * 0.1;
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-
-  const noise = audioCtx.createBufferSource();
-  noise.buffer = buffer;
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-
-  noise.connect(gain);
-  gain.connect(audioCtx.destination);
-
-  noise.start();
-}
-
-// Victory Arpeggio Tone
-function playVictorySound() {
-  if (!soundEnabled) return;
-  initAudio();
-
-  const notes = [261.63, 329.63, 392.00, 523.25]; // C - E - G - C
-  notes.forEach((freq, idx) => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = freq;
-
-    gain.gain.setValueAtTime(0.15, audioCtx.currentTime + idx * 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.1 + 0.2);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start(audioCtx.currentTime + idx * 0.1);
-    osc.stop(audioCtx.currentTime + idx * 0.1 + 0.2);
+function switchScreen(screenKey) {
+  Object.keys(screens).forEach(key => {
+    if (key === screenKey) {
+      screens[key].classList.remove('hidden');
+      screens[key].classList.add('active');
+    } else {
+      screens[key].classList.add('hidden');
+      screens[key].classList.remove('active');
+    }
   });
 }
 
-// Defeat Low Tone
-function playDefeatSound() {
-  if (!soundEnabled) return;
-  initAudio();
+// 1. LOADING SCREEN LOGIC (4-5 Seconds)
+window.addEventListener('DOMContentLoaded', () => {
+  let progress = 0;
+  const bar = document.getElementById('loading-bar');
+  const text = document.getElementById('loading-text');
 
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  const interval = setInterval(() => {
+    progress += 2;
+    bar.style.width = progress + '%';
+    text.innerText = `Loading Realm Assets... ${progress}%`;
 
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.4);
-
-  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.4);
-}
-
-// Load Animated Sprite Sheets using embedded Data URIs
-function createWarriorSprite(colorHex, glowHex) {
-  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-    <defs>
-      <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
-    <rect x="75" y="60" width="50" height="70" rx="8" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
-    <circle cx="100" cy="40" r="24" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
-    <rect x="85" y="32" width="30" height="8" rx="3" fill="#0f172a"/>
-    <rect x="90" y="34" width="20" height="4" rx="2" fill="${glowHex}" filter="url(#glow)"/>
-    <path d="M130 50 L180 20 L170 10 L120 40 Z" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/>
-    <rect x="118" y="38" width="12" height="6" fill="#f59e0b"/>
-  </svg>`;
-  const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
-  return img;
-}
-
-const p1Sprite = createWarriorSprite('#38bdf8', '#7dd3fc');
-const p2Sprite = createWarriorSprite('#f43f5e', '#fda4af');
-
-// Fighter Class
-class Fighter {
-  constructor({ position, velocity, sprite, attackBoxOffset, name, healthBarId }) {
-    this.position = position;
-    this.velocity = velocity;
-    this.width = 60;
-    this.height = 100;
-    this.sprite = sprite;
-    this.name = name;
-    this.health = 100;
-    this.healthBar = document.getElementById(healthBarId);
-    
-    this.isAttacking = false;
-    this.attackBox = {
-      position: { x: this.position.x, y: this.position.y },
-      offset: attackBoxOffset,
-      width: 90,
-      height: 50
-    };
-    this.facing = 'right';
-    this.animTimer = 0;
-  }
-
-  draw() {
-    ctx.save();
-
-    if (this.facing === 'left') {
-      ctx.translate(this.position.x + this.width, this.position.y);
-      ctx.scale(-1, 1);
-    } else {
-      ctx.translate(this.position.x, this.position.y);
+    if (progress >= 100) {
+      clearInterval(interval);
+      switchScreen('auth');
     }
-
-    let yOffset = 0;
-    let rotation = 0;
-
-    if (Math.abs(this.velocity.x) > 0) {
-      this.animTimer += 0.2;
-      yOffset = Math.sin(this.animTimer) * 4;
-    }
-
-    if (this.velocity.y !== 0) {
-      rotation = 0.08;
-    }
-
-    if (this.isAttacking) {
-      ctx.translate(10, 0);
-      rotation = -0.15;
-    }
-
-    ctx.rotate(rotation);
-    ctx.drawImage(this.sprite, 0, yOffset, this.width, this.height);
-
-    if (this.isAttacking) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.beginPath();
-      ctx.arc(this.width / 2 + 30, this.height / 2, 45, -Math.PI / 4, Math.PI / 4);
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  update() {
-    this.draw();
-
-    if (this.facing === 'right') {
-      this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
-    } else {
-      this.attackBox.position.x = this.position.x - this.attackBox.width + 20;
-    }
-    this.attackBox.position.y = this.position.y + this.attackBox.offset.y;
-
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
-
-    if (this.position.y + this.height + this.velocity.y >= GROUND_Y) {
-      this.velocity.y = 0;
-      this.position.y = GROUND_Y - this.height;
-    } else {
-      this.velocity.y += GRAVITY;
-    }
-
-    if (this.position.x < 0) this.position.x = 0;
-    if (this.position.x + this.width > canvas.width) this.position.x = canvas.width - this.width;
-  }
-
-  attack() {
-    if (this.isAttacking || gameOver) return;
-    this.isAttacking = true;
-    playSwingSound();
-    setTimeout(() => {
-      this.isAttacking = false;
-    }, 150);
-  }
-
-  takeDamage(amount) {
-    this.health -= amount;
-    if (this.health < 0) this.health = 0;
-    this.healthBar.style.width = this.health + '%';
-    playHitSound();
-  }
-
-  reset(xPos) {
-    this.health = 100;
-    this.healthBar.style.width = '100%';
-    this.position.x = xPos;
-    this.position.y = 100;
-    this.velocity = { x: 0, y: 0 };
-    this.isAttacking = false;
-  }
-}
-
-// Instantiate Champions
-const player1 = new Fighter({
-  position: { x: 100, y: 100 },
-  velocity: { x: 0, y: 0 },
-  sprite: p1Sprite,
-  attackBoxOffset: { x: 40, y: 20 },
-  name: 'Aerus',
-  healthBarId: 'p1-health'
+  }, 90); // ~4.5 Seconds Total
 });
 
-const player2 = new Fighter({
-  position: { x: 640, y: 100 },
-  velocity: { x: 0, y: 0 },
-  sprite: p2Sprite,
-  attackBoxOffset: { x: 0, y: 20 },
-  name: 'Rival',
-  healthBarId: 'p2-health'
-});
-player2.facing = 'left';
+// 2. AUTHENTICATION LOGIC (Client Storage)
+const loginForm = document.getElementById('login-form');
+const signupForm = document.getElementById('signup-form');
+const showSignup = document.getElementById('show-signup');
+const showLogin = document.getElementById('show-login');
 
-const keys = {
-  a: { pressed: false },
-  d: { pressed: false },
-  ArrowLeft: { pressed: false },
-  ArrowRight: { pressed: false }
+showSignup.addEventListener('click', () => {
+  loginForm.classList.add('hidden');
+  signupForm.classList.remove('hidden');
+});
+
+showLogin.addEventListener('click', () => {
+  signupForm.classList.add('hidden');
+  loginForm.classList.remove('hidden');
+});
+
+signupForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const displayName = document.getElementById('signup-displayname').value;
+  const username = document.getElementById('signup-username').value;
+  const password = document.getElementById('signup-password').value;
+  const repeatPassword = document.getElementById('signup-repeat-password').value;
+
+  if (password !== repeatPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  const userObj = { displayName, username, password };
+  localStorage.setItem(`user_${username}`, JSON.stringify(userObj));
+  alert("Account created successfully! Please sign in.");
+  signupForm.classList.add('hidden');
+  loginForm.classList.remove('hidden');
+});
+
+loginForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+
+  const stored = localStorage.getItem(`user_${username}`);
+  if (!stored) {
+    alert("User not found!");
+    return;
+  }
+
+  const userObj = JSON.parse(stored);
+  if (userObj.password !== password) {
+    alert("Incorrect password!");
+    return;
+  }
+
+  appState.currentUser = userObj;
+  document.getElementById('p1-display-name').innerText = userObj.displayName;
+  switchScreen('home');
+  updateHomeUI();
+});
+
+// 3. HOME SCREEN & CHARACTER SELECTION
+const charName = document.getElementById('char-name');
+const charDesc = document.getElementById('char-desc');
+const charPrevBtn = document.getElementById('char-prev');
+const charNextBtn = document.getElementById('char-next');
+const playBtn = document.getElementById('play-btn');
+
+function updateHomeUI() {
+  const current = appState.characters[appState.selectedCharIndex];
+  charName.innerText = current.name;
+  charDesc.innerText = current.desc;
+  document.getElementById('coin-count').innerText = appState.coins.toLocaleString();
+}
+
+charPrevBtn.addEventListener('click', () => {
+  appState.selectedCharIndex = (appState.selectedCharIndex - 1 + appState.characters.length) % appState.characters.length;
+  updateHomeUI();
+});
+
+charNextBtn.addEventListener('click', () => {
+  appState.selectedCharIndex = (appState.selectedCharIndex + 1) % appState.characters.length;
+  updateHomeUI();
+});
+
+// Home Menu Modal Toggle
+const menuBtn = document.getElementById('menu-btn');
+const menuModal = document.getElementById('menu-modal');
+const closeMenuBtn = document.getElementById('close-menu-btn');
+const logoutBtn = document.getElementById('logout-btn');
+
+menuBtn.addEventListener('click', () => menuModal.classList.remove('hidden'));
+closeMenuBtn.addEventListener('click', () => menuModal.classList.add('hidden'));
+logoutBtn.addEventListener('click', () => {
+  menuModal.classList.add('hidden');
+  appState.currentUser = null;
+  switchScreen('auth');
+});
+
+// 4. MATCH START & ROUND SYSTEM
+playBtn.addEventListener('click', () => {
+  switchScreen('game');
+  resetFullMatch();
+  if (window.init3DGame) {
+    window.init3DGame(appState.characters[appState.selectedCharIndex]);
+  }
+});
+
+function resetFullMatch() {
+  appState.p1Wins = 0;
+  appState.p2Wins = 0;
+  appState.currentRound = 1;
+  updateRoundUI();
+}
+
+function updateRoundUI() {
+  document.getElementById('round-indicator').innerText = `ROUND ${appState.currentRound}`;
+  
+  // Update Score Dots
+  const p1Dots = document.querySelectorAll('#p1-dots .dot');
+  const p2Dots = document.querySelectorAll('#p2-dots .dot');
+
+  p1Dots.forEach((dot, idx) => dot.classList.toggle('won', idx < appState.p1Wins));
+  p2Dots.forEach((dot, idx) => dot.classList.toggle('won', idx < appState.p2Wins));
+}
+
+// Global Round/Match Handlers invoked by 3D Engine
+window.handleRoundEnd = function(winner) {
+  const roundModal = document.getElementById('round-result-modal');
+  const roundImg = document.getElementById('round-result-img');
+
+  if (winner === 'p1') {
+    appState.p1Wins++;
+    roundImg.src = 'image/victory.png';
+  } else {
+    appState.p2Wins++;
+    roundImg.src = 'image/defeat.png';
+  }
+
+  updateRoundUI();
+  roundModal.classList.remove('hidden');
+
+  setTimeout(() => {
+    roundModal.classList.add('hidden');
+
+    // Check if someone won 2 rounds total
+    if (appState.p1Wins >= 2 || appState.p2Wins >= 2) {
+      handleMatchEnd(appState.p1Wins >= 2);
+    } else {
+      appState.currentRound++;
+      updateRoundUI();
+      if (window.restartRound) window.restartRound();
+    }
+  }, 2000);
 };
 
-// UI & Buttons
-const modeBtn = document.getElementById('mode-toggle');
-const soundBtn = document.getElementById('sound-toggle');
-const p2Label = document.getElementById('p2-label');
-const gameOverOverlay = document.getElementById('game-over-overlay');
-const resultBanner = document.getElementById('result-banner');
-const restartBtn = document.getElementById('restart-btn');
+function handleMatchEnd(playerWon) {
+  const matchModal = document.getElementById('match-over-modal');
+  const matchImg = document.getElementById('match-result-img');
 
-modeBtn.addEventListener('click', () => {
-  isAiMode = !isAiMode;
-  modeBtn.innerText = isAiMode ? 'VS Computer' : '2P Local';
-  p2Label.innerText = isAiMode ? 'CPU (Rival AI)' : 'Champion 2 (P2)';
-});
-
-soundBtn.addEventListener('click', () => {
-  soundEnabled = !soundEnabled;
-  soundBtn.innerText = soundEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
-});
-
-// Keyboard Input
-window.addEventListener('keydown', (event) => {
-  if (gameOver) return;
-  initAudio();
-  switch (event.key) {
-    case 'a': case 'A': keys.a.pressed = true; player1.facing = 'left'; break;
-    case 'd': case 'D': keys.d.pressed = true; player1.facing = 'right'; break;
-    case 'w': case 'W': if (player1.velocity.y === 0) player1.velocity.y = -14; break;
-    case ' ': player1.attack(); break;
-
-    case 'ArrowLeft': if (!isAiMode) { keys.ArrowLeft.pressed = true; player2.facing = 'left'; } break;
-    case 'ArrowRight': if (!isAiMode) { keys.ArrowRight.pressed = true; player2.facing = 'right'; } break;
-    case 'ArrowUp': if (!isAiMode && player2.velocity.y === 0) player2.velocity.y = -14; break;
-    case 'Enter': if (!isAiMode) player2.attack(); break;
-  }
-});
-
-window.addEventListener('keyup', (event) => {
-  switch (event.key) {
-    case 'a': case 'A': keys.a.pressed = false; break;
-    case 'd': case 'D': keys.d.pressed = false; break;
-    case 'ArrowLeft': keys.ArrowLeft.pressed = false; break;
-    case 'ArrowRight': keys.ArrowRight.pressed = false; break;
-  }
-});
-
-// Touch Event Listeners
-function bindTouchButton(btnId, onPress, onRelease) {
-  const btn = document.getElementById(btnId);
-  btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); if (!gameOver) onPress(); });
-  btn.addEventListener('touchend', (e) => { e.preventDefault(); if (onRelease) onRelease(); });
-}
-
-bindTouchButton('btn-left', () => { keys.a.pressed = true; player1.facing = 'left'; }, () => { keys.a.pressed = false; });
-bindTouchButton('btn-right', () => { keys.d.pressed = true; player1.facing = 'right'; }, () => { keys.d.pressed = false; });
-bindTouchButton('btn-jump', () => { if (player1.velocity.y === 0) player1.velocity.y = -14; });
-bindTouchButton('btn-attack', () => { player1.attack(); });
-
-// AI Logic
-function updateComputerAI() {
-  if (!isAiMode || player2.health <= 0 || gameOver) return;
-
-  const distanceToPlayer = player1.position.x - player2.position.x;
-  player2.facing = distanceToPlayer > 0 ? 'right' : 'left';
-
-  if (Math.abs(distanceToPlayer) > 60) {
-    player2.velocity.x = distanceToPlayer > 0 ? 3.5 : -3.5;
+  if (playerWon) {
+    matchImg.src = 'image/youwin.png';
+    appState.coins += 250; // Reward coins on win
   } else {
-    player2.velocity.x = 0;
-    if (Math.random() < 0.05) {
-      player2.attack();
-    }
+    matchImg.src = 'image/youlose.png';
   }
 
-  if (player1.position.y < GROUND_Y - 120 && player2.velocity.y === 0 && Math.random() < 0.08) {
-    player2.velocity.y = -14;
-  }
+  matchModal.classList.remove('hidden');
 }
 
-function rectangularCollision({ rectangle1, rectangle2 }) {
-  return (
-    rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
-    rectangle1.attackBox.position.x <= rectangle2.position.x + rectangle2.width &&
-    rectangle1.attackBox.position.y + rectangle1.attackBox.height >= rectangle2.position.y &&
-    rectangle1.attackBox.position.y <= rectangle2.position.y + rectangle2.height
-  );
-}
-
-function checkGameOver() {
-  if (gameOver) return;
-
-  if (player2.health <= 0) {
-    gameOver = true;
-    resultBanner.src = 'image/victory.png';
-    gameOverOverlay.style.display = 'flex';
-    playVictorySound();
-  } else if (player1.health <= 0) {
-    gameOver = true;
-    resultBanner.src = 'image/defeat.png';
-    gameOverOverlay.style.display = 'flex';
-    playDefeatSound();
-  }
-}
-
-restartBtn.addEventListener('click', () => {
-  gameOver = false;
-  gameOverOverlay.style.display = 'none';
-  player1.reset(100);
-  player2.reset(640);
-  player2.facing = 'left';
+document.getElementById('rematch-btn').addEventListener('click', () => {
+  document.getElementById('match-over-modal').classList.add('hidden');
+  resetFullMatch();
+  if (window.restartRound) window.restartRound();
 });
 
-// Game Loop
-function animate() {
-  window.requestAnimationFrame(animate);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = '#1e293b';
-  ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
-
-  player1.velocity.x = 0;
-  if (!isAiMode) player2.velocity.x = 0;
-
-  if (!gameOver) {
-    if (keys.a.pressed) player1.velocity.x = -5;
-    else if (keys.d.pressed) player1.velocity.x = 5;
-
-    if (!isAiMode) {
-      if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
-      else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
-    } else {
-      updateComputerAI();
-    }
-  }
-
-  player1.update();
-  player2.update();
-
-  if (!gameOver) {
-    if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
-      player1.isAttacking = false;
-      player2.takeDamage(10);
-    }
-
-    if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
-      player2.isAttacking = false;
-      player1.takeDamage(10);
-    }
-
-    checkGameOver();
-  }
-}
-
-animate();
+document.getElementById('home-return-btn').addEventListener('click', () => {
+  document.getElementById('match-over-modal').classList.add('hidden');
+  switchScreen('home');
+  updateHomeUI();
+});
