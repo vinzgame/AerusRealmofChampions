@@ -2,14 +2,13 @@
    AERUS: REALM OF CHAMPIONS - APPLICATION ENGINE & STATE MANAGER
    ========================================================================== */
 
-// --- GLOBAL AUDIO SYNTHESIZER (PROCEDURAL OPEN SOURCE WEB AUDIO) ---
+// --- GLOBAL AUDIO SYNTHESIZER ---
 class AudioEngine {
     constructor() {
         this.ctx = null;
         this.musicVol = 0.7;
         this.sfxVol = 0.8;
         this.isMuted = false;
-        this.bgOsc = null;
     }
 
     init() {
@@ -40,21 +39,12 @@ class AudioEngine {
         } catch(e) {}
     }
 
-    playHit() {
-        this.playTone(120, 'sawtooth', 0.15, 1.0);
-    }
-
-    playJump() {
-        this.playTone(300, 'sine', 0.2, 0.5);
-    }
-
-    playClick() {
-        this.playTone(600, 'triangle', 0.05, 0.3);
-    }
+    playHit() { this.playTone(120, 'sawtooth', 0.15, 1.0); }
+    playJump() { this.playTone(300, 'sine', 0.2, 0.5); }
+    playClick() { this.playTone(600, 'triangle', 0.05, 0.3); }
 
     playVictory() {
         if (this.isMuted || !this.ctx) return;
-        const now = this.ctx.currentTime;
         [440, 554, 659, 880].forEach((freq, idx) => {
             setTimeout(() => this.playTone(freq, 'sine', 0.4, 0.8), idx * 120);
         });
@@ -63,7 +53,7 @@ class AudioEngine {
 
 const audio = new AudioEngine();
 
-// --- GAME DATA & ROSTER (10 ORIGINAL CHAMPIONS) ---
+// --- GAME DATA & ROSTER ---
 const CHAMPIONS_ROSTER = [
     { id: 'vanguard', name: 'VANGUARD', archetype: 'BALANCED WARRIOR', power: 7, speed: 7, defense: 7, desc: 'A versatile fighter skilled in balanced offensive and defensive combat style.' },
     { id: 'aura', name: 'AURA', archetype: 'FAST MAGICAL FIGHTER', power: 6, speed: 9, defense: 5, desc: 'Channels ethereal energy to strike enemies with immense speed.' },
@@ -100,6 +90,10 @@ const AppState = {
 
 // --- MAIN APPLICATION INIT ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Ensure all overlays start hidden
+    document.getElementById('victory-modal').classList.add('hidden');
+    document.getElementById('defeat-modal').classList.add('hidden');
+
     loadLocalStorageData();
     setupNavigationEvents();
     setupAuthEvents();
@@ -108,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
     simulateLoadingProcess();
 });
 
-// Load saved profile/settings
 function loadLocalStorageData() {
     const savedProf = localStorage.getItem('aerus_profile');
     if (savedProf) {
@@ -122,7 +115,6 @@ function loadLocalStorageData() {
     }
 }
 
-// Save profile state
 function saveProfileData() {
     localStorage.setItem('aerus_profile', JSON.stringify(AppState.userProfile));
     updateProfileUI();
@@ -139,7 +131,6 @@ function updateProfileUI() {
     document.getElementById('nav-auth-btn').innerText = AppState.userProfile.isLoggedIn ? 'LOGOUT' : 'SIGN IN';
 }
 
-// --- LOADING PROCESS SIMULATION ---
 function simulateLoadingProcess() {
     let progress = 0;
     const bar = document.getElementById('loading-bar');
@@ -158,10 +149,9 @@ function simulateLoadingProcess() {
                 switchScreen('home-screen');
             }, 400);
         }
-    }, 120);
+    }, 100);
 }
 
-// --- SCREEN NAVIGATION ---
 function switchScreen(screenId) {
     audio.playClick();
     document.querySelectorAll('.screen').forEach(s => {
@@ -172,7 +162,6 @@ function switchScreen(screenId) {
 }
 
 function setupNavigationEvents() {
-    // Buttons
     document.getElementById('play-btn').onclick = () => switchScreen('character-select-screen');
     document.getElementById('champions-btn').onclick = () => switchScreen('character-select-screen');
     document.getElementById('profile-btn').onclick = () => switchScreen('profile-screen');
@@ -183,7 +172,6 @@ function setupNavigationEvents() {
     document.getElementById('profile-back-btn').onclick = () => switchScreen('home-screen');
     document.getElementById('settings-back-btn').onclick = () => switchScreen('home-screen');
 
-    // Confirm Champion -> Enter Match
     document.getElementById('confirm-char-btn').onclick = () => {
         switchScreen('game-screen');
         if (window.start3DMatch) {
@@ -191,7 +179,6 @@ function setupNavigationEvents() {
         }
     };
 
-    // Fullscreen Toggle
     document.getElementById('fullscreen-btn').onclick = () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -200,7 +187,6 @@ function setupNavigationEvents() {
         }
     };
 
-    // Modal Buttons
     ['victory-rematch-btn', 'defeat-rematch-btn'].forEach(id => {
         document.getElementById(id).onclick = () => {
             document.getElementById('victory-modal').classList.add('hidden');
@@ -226,7 +212,6 @@ function setupNavigationEvents() {
     });
 }
 
-// --- RENDER CHARACTER SELECT GRID ---
 function renderCharacterGrid() {
     const grid = document.getElementById('character-grid');
     grid.innerHTML = '';
@@ -263,7 +248,6 @@ function selectChampion(char) {
     document.getElementById('stat-defense').style.width = `${char.defense * 10}%`;
 }
 
-// --- AUTHENTICATION ---
 function setupAuthEvents() {
     const authBtn = document.getElementById('nav-auth-btn');
     const authScreen = document.getElementById('auth-screen');
@@ -325,9 +309,7 @@ function setupAuthEvents() {
     };
 }
 
-// --- SETTINGS CONTROLS ---
 function setupSettingsEvents() {
-    // Segmented Quality
     document.querySelectorAll('.seg-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -337,7 +319,6 @@ function setupSettingsEvents() {
         };
     });
 
-    // Audio Sliders
     document.getElementById('music-vol-slider').oninput = (e) => {
         AppState.settings.musicVol = parseInt(e.target.value);
         saveSettings();
@@ -386,7 +367,6 @@ function applySettingsToUI() {
     audio.sfxVol = AppState.settings.sfxVol / 100;
 }
 
-// Global Callback when match finishes
 window.onMatchComplete = function(result) {
     if (result === 'VICTORY') {
         AppState.userProfile.wins++;
