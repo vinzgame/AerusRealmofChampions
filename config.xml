@@ -4,16 +4,20 @@
     <description>3D Fighting Game</description>
     <author email="dev@aerus.com">Aerus Team</author>
     
-    <content src="index.html" />
+    <!-- Points directly to your GitHub Pages Live Web Build -->
+    <content src="https://vinzgame.github.io/AerusRealmofChampions/" />
+
+    <!-- Grant permission to stream content directly from the web -->
+    <access origin="*" />
+    <allow-navigation href="*" />
+    <allow-intent href="*" />
 
     <!-- Lock orientation to Landscape -->
     <preference name="Orientation" value="landscape" />
 
-    <!-- Hide Android Status Bar (Battery, Time, Signal) -->
+    <!-- Fullscreen & Immersive Mode -->
     <preference name="Fullscreen" value="true" />
     <preference name="StatusBarOverlaysWebView" value="true" />
-
-    <!-- Enable Android Immersive Mode (Hides soft navigation bar) -->
     <preference name="KeepRunning" value="true" />
     <preference name="AndroidInmersiveMode" value="true" />
 
