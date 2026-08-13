@@ -1,4 +1,4 @@
-// --- AERUS GAME STATE & UI NAVIGATION ENGINE ---
+// --- AERUS: REALM OF CHAMPIONS - FULL UI & AUTH SYSTEM ---
 
 const appState = {
   currentUser: null,
@@ -21,7 +21,7 @@ const appState = {
   ]
 };
 
-// DOM References
+// Screen Registry
 const screens = {
   loading: document.getElementById('loading-screen'),
   auth: document.getElementById('auth-screen'),
@@ -29,95 +29,112 @@ const screens = {
   game: document.getElementById('game-screen')
 };
 
-function switchScreen(screenKey) {
+function switchScreen(targetKey) {
   Object.keys(screens).forEach(key => {
-    if (key === screenKey) {
-      screens[key].classList.remove('hidden');
-      screens[key].classList.add('active');
-    } else {
-      screens[key].classList.add('hidden');
-      screens[key].classList.remove('active');
+    if (screens[key]) {
+      if (key === targetKey) {
+        screens[key].classList.remove('hidden');
+        screens[key].classList.add('active');
+      } else {
+        screens[key].classList.add('hidden');
+        screens[key].classList.remove('active');
+      }
     }
   });
 }
 
-// 1. LOADING SCREEN LOGIC (4-5 Seconds)
+// 1. INITIALIZATION & LOADING SCREEN
 window.addEventListener('DOMContentLoaded', () => {
   let progress = 0;
   const bar = document.getElementById('loading-bar');
   const text = document.getElementById('loading-text');
 
-  const interval = setInterval(() => {
+  // Keep menu modal closed on boot
+  const menuModal = document.getElementById('menu-modal');
+  if (menuModal) menuModal.classList.add('hidden');
+
+  const timer = setInterval(() => {
     progress += 2;
-    bar.style.width = progress + '%';
-    text.innerText = `Loading Realm Assets... ${progress}%`;
+    if (bar) bar.style.width = progress + '%';
+    if (text) text.innerText = `Loading Realm Assets... ${progress}%`;
 
     if (progress >= 100) {
-      clearInterval(interval);
+      clearInterval(timer);
       switchScreen('auth');
     }
-  }, 90); // ~4.5 Seconds Total
+  }, 40);
 });
 
-// 2. AUTHENTICATION LOGIC (Client Storage)
+// 2. AUTHENTICATION (SIGN IN & SIGN UP)
 const loginForm = document.getElementById('login-form');
 const signupForm = document.getElementById('signup-form');
-const showSignup = document.getElementById('show-signup');
-const showLogin = document.getElementById('show-login');
+const showSignupBtn = document.getElementById('show-signup');
+const showLoginBtn = document.getElementById('show-login');
 
-showSignup.addEventListener('click', () => {
-  loginForm.classList.add('hidden');
-  signupForm.classList.remove('hidden');
-});
+if (showSignupBtn) {
+  showSignupBtn.addEventListener('click', () => {
+    loginForm.classList.add('hidden');
+    signupForm.classList.remove('hidden');
+  });
+}
 
-showLogin.addEventListener('click', () => {
-  signupForm.classList.add('hidden');
-  loginForm.classList.remove('hidden');
-});
+if (showLoginBtn) {
+  showLoginBtn.addEventListener('click', () => {
+    signupForm.classList.add('hidden');
+    loginForm.classList.remove('hidden');
+  });
+}
 
-signupForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const displayName = document.getElementById('signup-displayname').value;
-  const username = document.getElementById('signup-username').value;
-  const password = document.getElementById('signup-password').value;
-  const repeatPassword = document.getElementById('signup-repeat-password').value;
+if (signupForm) {
+  signupForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const displayName = document.getElementById('signup-displayname').value;
+    const username = document.getElementById('signup-username').value;
+    const password = document.getElementById('signup-password').value;
 
-  if (password !== repeatPassword) {
-    alert("Passwords do not match!");
-    return;
-  }
+    const userObj = { displayName, username, password };
+    localStorage.setItem(`user_${username}`, JSON.stringify(userObj));
+    alert("Account created successfully! Please sign in.");
+    
+    signupForm.classList.add('hidden');
+    loginForm.classList.remove('hidden');
+  });
+}
 
-  const userObj = { displayName, username, password };
-  localStorage.setItem(`user_${username}`, JSON.stringify(userObj));
-  alert("Account created successfully! Please sign in.");
-  signupForm.classList.add('hidden');
-  loginForm.classList.remove('hidden');
-});
+if (loginForm) {
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
 
-loginForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const username = document.getElementById('login-username').value;
-  const password = document.getElementById('login-password').value;
+    const stored = localStorage.getItem(`user_${username}`);
+    if (!stored) {
+      alert("Account not found!");
+      return;
+    }
 
-  const stored = localStorage.getItem(`user_${username}`);
-  if (!stored) {
-    alert("User not found!");
-    return;
-  }
+    const userObj = JSON.parse(stored);
+    if (userObj.password !== password) {
+      alert("Invalid credentials!");
+      return;
+    }
 
-  const userObj = JSON.parse(stored);
-  if (userObj.password !== password) {
-    alert("Incorrect password!");
-    return;
-  }
+    appState.currentUser = userObj;
 
-  appState.currentUser = userObj;
-  document.getElementById('p1-display-name').innerText = userObj.displayName;
-  switchScreen('home');
-  updateHomeUI();
-});
+    // Set name tag on home screen
+    const nameTag = document.getElementById('p1-display-name');
+    if (nameTag) nameTag.innerText = userObj.displayName;
 
-// 3. HOME SCREEN & CHARACTER SELECTION
+    // Transition to Home Screen (ensure menu is closed)
+    const menuModal = document.getElementById('menu-modal');
+    if (menuModal) menuModal.classList.add('hidden');
+
+    switchScreen('home');
+    updateHomeUI();
+  });
+}
+
+// 3. HOME SCREEN & MENU MODAL TOGGLES
 const charName = document.getElementById('char-name');
 const charDesc = document.getElementById('char-desc');
 const charPrevBtn = document.getElementById('char-prev');
@@ -126,43 +143,58 @@ const playBtn = document.getElementById('play-btn');
 
 function updateHomeUI() {
   const current = appState.characters[appState.selectedCharIndex];
-  charName.innerText = current.name;
-  charDesc.innerText = current.desc;
-  document.getElementById('coin-count').innerText = appState.coins.toLocaleString();
+  if (charName) charName.innerText = current.name;
+  if (charDesc) charDesc.innerText = current.desc;
+  const coinsTag = document.getElementById('coin-count');
+  if (coinsTag) coinsTag.innerText = appState.coins.toLocaleString();
 }
 
-charPrevBtn.addEventListener('click', () => {
-  appState.selectedCharIndex = (appState.selectedCharIndex - 1 + appState.characters.length) % appState.characters.length;
-  updateHomeUI();
-});
+if (charPrevBtn) {
+  charPrevBtn.addEventListener('click', () => {
+    appState.selectedCharIndex = (appState.selectedCharIndex - 1 + appState.characters.length) % appState.characters.length;
+    updateHomeUI();
+  });
+}
 
-charNextBtn.addEventListener('click', () => {
-  appState.selectedCharIndex = (appState.selectedCharIndex + 1) % appState.characters.length;
-  updateHomeUI();
-});
+if (charNextBtn) {
+  charNextBtn.addEventListener('click', () => {
+    appState.selectedCharIndex = (appState.selectedCharIndex + 1) % appState.characters.length;
+    updateHomeUI();
+  });
+}
 
-// Home Menu Modal Toggle
+// Top-Left Menu Trigger & Modal Buttons
 const menuBtn = document.getElementById('menu-btn');
 const menuModal = document.getElementById('menu-modal');
 const closeMenuBtn = document.getElementById('close-menu-btn');
 const logoutBtn = document.getElementById('logout-btn');
 
-menuBtn.addEventListener('click', () => menuModal.classList.remove('hidden'));
-closeMenuBtn.addEventListener('click', () => menuModal.classList.add('hidden'));
-logoutBtn.addEventListener('click', () => {
-  menuModal.classList.add('hidden');
-  appState.currentUser = null;
-  switchScreen('auth');
-});
+if (menuBtn && menuModal) {
+  menuBtn.addEventListener('click', () => menuModal.classList.remove('hidden'));
+}
 
-// 4. MATCH START & ROUND SYSTEM
-playBtn.addEventListener('click', () => {
-  switchScreen('game');
-  resetFullMatch();
-  if (window.init3DGame) {
-    window.init3DGame(appState.characters[appState.selectedCharIndex]);
-  }
-});
+if (closeMenuBtn && menuModal) {
+  closeMenuBtn.addEventListener('click', () => menuModal.classList.add('hidden'));
+}
+
+if (logoutBtn && menuModal) {
+  logoutBtn.addEventListener('click', () => {
+    menuModal.classList.add('hidden');
+    appState.currentUser = null;
+    switchScreen('auth');
+  });
+}
+
+// 4. MATCH ENGINE LIFECYCLE
+if (playBtn) {
+  playBtn.addEventListener('click', () => {
+    switchScreen('game');
+    resetFullMatch();
+    if (window.init3DGame) {
+      window.init3DGame(appState.characters[appState.selectedCharIndex]);
+    }
+  });
+}
 
 function resetFullMatch() {
   appState.p1Wins = 0;
@@ -172,36 +204,35 @@ function resetFullMatch() {
 }
 
 function updateRoundUI() {
-  document.getElementById('round-indicator').innerText = `ROUND ${appState.currentRound}`;
-  
-  // Update Score Dots
+  const roundTag = document.getElementById('round-indicator');
+  if (roundTag) roundTag.innerText = `ROUND ${appState.currentRound}`;
+
   const p1Dots = document.querySelectorAll('#p1-dots .dot');
   const p2Dots = document.querySelectorAll('#p2-dots .dot');
 
-  p1Dots.forEach((dot, idx) => dot.classList.toggle('won', idx < appState.p1Wins));
-  p2Dots.forEach((dot, idx) => dot.classList.toggle('won', idx < appState.p2Wins));
+  p1Dots.forEach((dot, i) => dot.classList.toggle('won', i < appState.p1Wins));
+  p2Dots.forEach((dot, i) => dot.classList.toggle('won', i < appState.p2Wins));
 }
 
-// Global Round/Match Handlers invoked by 3D Engine
+// Global Round Interceptor for game3d.js
 window.handleRoundEnd = function(winner) {
   const roundModal = document.getElementById('round-result-modal');
   const roundImg = document.getElementById('round-result-img');
 
   if (winner === 'p1') {
     appState.p1Wins++;
-    roundImg.src = 'image/victory.png';
+    if (roundImg) roundImg.src = 'image/victory.png';
   } else {
     appState.p2Wins++;
-    roundImg.src = 'image/defeat.png';
+    if (roundImg) roundImg.src = 'image/defeat.png';
   }
 
   updateRoundUI();
-  roundModal.classList.remove('hidden');
+  if (roundModal) roundModal.classList.remove('hidden');
 
   setTimeout(() => {
-    roundModal.classList.add('hidden');
+    if (roundModal) roundModal.classList.add('hidden');
 
-    // Check if someone won 2 rounds total
     if (appState.p1Wins >= 2 || appState.p2Wins >= 2) {
       handleMatchEnd(appState.p1Wins >= 2);
     } else {
@@ -217,23 +248,30 @@ function handleMatchEnd(playerWon) {
   const matchImg = document.getElementById('match-result-img');
 
   if (playerWon) {
-    matchImg.src = 'image/youwin.png';
-    appState.coins += 250; // Reward coins on win
+    if (matchImg) matchImg.src = 'image/youwin.png';
+    appState.coins += 250;
   } else {
-    matchImg.src = 'image/youlose.png';
+    if (matchImg) matchImg.src = 'image/youlose.png';
   }
 
-  matchModal.classList.remove('hidden');
+  if (matchModal) matchModal.classList.remove('hidden');
 }
 
-document.getElementById('rematch-btn').addEventListener('click', () => {
-  document.getElementById('match-over-modal').classList.add('hidden');
-  resetFullMatch();
-  if (window.restartRound) window.restartRound();
-});
+const rematchBtn = document.getElementById('rematch-btn');
+const homeReturnBtn = document.getElementById('home-return-btn');
 
-document.getElementById('home-return-btn').addEventListener('click', () => {
-  document.getElementById('match-over-modal').classList.add('hidden');
-  switchScreen('home');
-  updateHomeUI();
-});
+if (rematchBtn) {
+  rematchBtn.addEventListener('click', () => {
+    document.getElementById('match-over-modal').classList.add('hidden');
+    resetFullMatch();
+    if (window.restartRound) window.restartRound();
+  });
+}
+
+if (homeReturnBtn) {
+  homeReturnBtn.addEventListener('click', () => {
+    document.getElementById('match-over-modal').classList.add('hidden');
+    switchScreen('home');
+    updateHomeUI();
+  });
+}
