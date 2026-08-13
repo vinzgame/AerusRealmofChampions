@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.aerus.game" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Aerus Realm of Champions</name>
+    <description>3D Fighting Game</description>
+    <author email="dev@aerus.com">Aerus Team</author>
+    
+    <content src="index.html" />
+
+    <!-- Lock orientation to Landscape -->
+    <preference name="Orientation" value="landscape" />
+
+    <!-- Hide Android Status Bar (Battery, Time, Signal) -->
+    <preference name="Fullscreen" value="true" />
+    <preference name="StatusBarOverlaysWebView" value="true" />
+
+    <!-- Enable Android Immersive Mode (Hides soft navigation bar) -->
+    <preference name="KeepRunning" value="true" />
+    <preference name="AndroidInmersiveMode" value="true" />
+
+    <platform name="android">
+        <allow-intent href="market:*" />
+    </platform>
+</widget>
