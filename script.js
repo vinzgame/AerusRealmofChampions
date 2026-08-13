@@ -1,4 +1,14 @@
+document.addEventListener('deviceready', function () {
+    if (window.AndroidFullScreen) {
+        // Hides status bar and bottom navigation bar completely
+        AndroidFullScreen.immersiveMode(null, null);
+    }
+}, false);
+
 // --- AERUS: REALM OF CHAMPIONS - FULL UI & AUTH SYSTEM ---
+
+
+
 
 const appState = {
   currentUser: null,
@@ -275,3 +285,6 @@ if (homeReturnBtn) {
     updateHomeUI();
   });
 }
+
+
+
