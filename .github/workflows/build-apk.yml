@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 20
 
-      # 3. Setup Java JDK 17 (Required for modern Android builds)
+      # 3. Setup Java JDK 17
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -33,35 +33,42 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Install Cordova Globally
+      # 5. Install Cordova CLI
       - name: Install Cordova CLI
         run: npm install -g cordova
 
-      # 6. Initialize Cordova Project & Copy Web Assets
+      # 6. Initialize Cordova & Inject Native Fullscreen Settings
       - name: Build Cordova Android Project
         run: |
-          # Create a temporary Cordova project structure
+          # Create Cordova project structure
           cordova create cordovaApp com.aerus.game "Aerus Realm of Champions"
           
-          # Remove default Cordova boilerplate web files
+          # Clean default www folder
           rm -rf cordovaApp/www/*
           
-          # Copy all your game assets (index.html, game3d.js, script.js, style.css, image/) into www/
+          # Copy your game assets into www/
           cp -r index.html style.css game3d.js script.js image cordovaApp/www/
           
-          # Change directory into the Cordova app
+          # Replace default Cordova config.xml with your custom config.xml
+          cp config.xml cordovaApp/config.xml
+          
           cd cordovaApp
           
-          # Add the Android platform to Cordova
+          # Add Android platform
           cordova platform add android
+          
+          # Install plugins for Fullscreen and Orientation control
+          cordova plugin add cordova-plugin-fullscreen
+          cordova plugin add cordova-plugin-screen-orientation
+          cordova plugin add cordova-plugin-statusbar
 
-      # 7. Build Debug APK
+      # 7. Compile Debug APK
       - name: Compile APK with Cordova
         run: |
           cd cordovaApp
           cordova build android --debug
 
-      # 8. Upload the Built APK as an Artifact
+      # 8. Upload Artifact
       - name: Upload Cordova APK
         uses: actions/upload-artifact@v4
         with:
