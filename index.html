@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aerus: Realm of Champions</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Three.js Library for 3D Game Engine -->
+
+    <!-- 3D Engine Libraries (Order dependent) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 
@@ -30,17 +32,17 @@
             
             <!-- Login Form -->
             <form id="login-form">
-                <input type="text" id="login-username" placeholder="Username" required>
-                <input type="password" id="login-password" placeholder="Password" required>
+                <input type="text" id="login-username" placeholder="Username" autocomplete="username" required>
+                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
                 <button type="submit" class="btn primary-btn">SIGN IN</button>
                 <p class="auth-toggle">Need an account? <span id="show-signup">Create Account</span></p>
             </form>
 
             <!-- Signup Form -->
             <form id="signup-form" class="hidden">
-                <input type="text" id="signup-displayname" placeholder="Display Name" required>
-                <input type="text" id="signup-username" placeholder="Username" required>
-                <input type="password" id="signup-password" placeholder="Password" required>
+                <input type="text" id="signup-displayname" placeholder="Display Name" autocomplete="nickname" required>
+                <input type="text" id="signup-username" placeholder="Username" autocomplete="username" required>
+                <input type="password" id="signup-password" placeholder="Password" autocomplete="new-password" required>
                 <button type="submit" class="btn primary-btn">CREATE ACCOUNT</button>
                 <p class="auth-toggle">Already have an account? <span id="show-login">Sign In</span></p>
             </form>
@@ -141,7 +143,7 @@
         </div>
     </div>
 
-    <!-- Scripts (Loaded in order) -->
+    <!-- Game Scripts -->
     <script src="game3d.js"></script>
     <script src="script.js"></script>
 </body>
