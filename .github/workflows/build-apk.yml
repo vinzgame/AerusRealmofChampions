@@ -5,50 +5,53 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
 
     steps:
       # 1. Checkout repository code
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Set up Node.js environment
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      # 3. Set up Java JDK 17 (Required for modern Android builds)
+      # 3. Setup Java JDK 17
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      # 4. Set up Android SDK
+      # 4. Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Install Dependencies & Build Capacitor
-      - name: Install & Sync Capacitor
+      # 5. Initialize & Sync Capacitor Automatically
+      - name: Initialize Capacitor & Add Android
         run: |
-          npm ci || npm install
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Aerus Realm of Champions" "com.aerus.game" --web-dir "."
+          npx cap add android
           npx cap sync android
 
-      # 6. Make Gradle executable & Build APK
-      - name: Build Android Debug APK
+      # 6. Build Debug APK using Gradle
+      - name: Build Gradle Debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      # 7. Upload APK Artifact for Download
-      - name: Upload APK
+      # 7. Upload APK Artifact
+      - name: Upload Built APK
         uses: actions/upload-artifact@v4
         with:
-          name: Aerus.Apk
+          name: Aerus-RealmOfChampions-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
