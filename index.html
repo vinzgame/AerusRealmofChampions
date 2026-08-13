@@ -157,6 +157,46 @@
       border-color: #f43f5e;
     }
 
+    /* Victory/Defeat Game Over Overlay */
+    #game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 14, 20, 0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      backdrop-filter: blur(6px);
+    }
+    #result-banner {
+      max-width: 80%;
+      max-height: 50%;
+      object-fit: contain;
+      filter: drop-shadow(0 0 20px rgba(0,0,0,0.9));
+      margin-bottom: 20px;
+    }
+    .restart-btn {
+      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: transform 0.1s ease;
+    }
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+
     .controls-hint {
       margin-top: 12px;
       font-size: 12px;
@@ -192,6 +232,12 @@
       </div>
     </div>
 
+    <!-- Victory / Defeat Overlay Popup -->
+    <div id="game-over-overlay">
+      <img id="result-banner" src="" alt="Game Result">
+      <button class="restart-btn" id="restart-btn">Play Again</button>
+    </div>
+
     <canvas id="gameCanvas" width="800" height="400"></canvas>
 
     <!-- On-Screen Touch Buttons for Mobile -->
@@ -217,16 +263,42 @@
 
     const GRAVITY = 0.6;
     const GROUND_Y = 320;
-    let isAiMode = true; // Bot enabled by default
+    let isAiMode = true;
+    let gameOver = false;
+
+    // Load Animated Sprite Sheets using embedded Data URIs for instant cross-origin loading
+    function createWarriorSprite(colorHex, glowHex) {
+      const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Body Base -->
+        <rect x="75" y="60" width="50" height="70" rx="8" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
+        <!-- Head / Helmet -->
+        <circle cx="100" cy="40" r="24" fill="${colorHex}" stroke="#0f172a" stroke-width="4"/>
+        <rect x="85" y="32" width="30" height="8" rx="3" fill="#0f172a"/>
+        <!-- Eyes / Visor -->
+        <rect x="90" y="34" width="20" height="4" rx="2" fill="${glowHex}" filter="url(#glow)"/>
+        <!-- Sword -->
+        <path d="M130 50 L180 20 L170 10 L120 40 Z" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/>
+        <rect x="118" y="38" width="12" height="6" fill="#f59e0b"/>
+      </svg>`;
+      const img = new Image();
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+      return img;
+    }
+
+    const p1Sprite = createWarriorSprite('#38bdf8', '#7dd3fc');
+    const p2Sprite = createWarriorSprite('#f43f5e', '#fda4af');
 
     // Fighter Class
     class Fighter {
-      constructor({ position, velocity, color, attackBoxOffset, name, healthBarId }) {
+      constructor({ position, velocity, sprite, attackBoxOffset, name, healthBarId }) {
         this.position = position;
         this.velocity = velocity;
-        this.width = 50;
+        this.width = 60;
         this.height = 100;
-        this.color = color;
+        this.sprite = sprite;
         this.name = name;
         this.health = 100;
         this.healthBar = document.getElementById(healthBarId);
@@ -235,25 +307,58 @@
         this.attackBox = {
           position: { x: this.position.x, y: this.position.y },
           offset: attackBoxOffset,
-          width: 80,
-          height: 40
+          width: 90,
+          height: 50
         };
         this.facing = 'right';
+        this.animFrame = 0;
+        this.animTimer = 0;
       }
 
       draw() {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+        ctx.save();
+
+        // Handle Horizontal Flipping depending on Direction
+        if (this.facing === 'left') {
+          ctx.translate(this.position.x + this.width, this.position.y);
+          ctx.scale(-1, 1);
+        } else {
+          ctx.translate(this.position.x, this.position.y);
+        }
+
+        // Bobbing & Swings based on state
+        let yOffset = 0;
+        let rotation = 0;
+
+        if (Math.abs(this.velocity.x) > 0) {
+          // Running Animation Bounce
+          this.animTimer += 0.2;
+          yOffset = Math.sin(this.animTimer) * 4;
+        }
+
+        if (this.velocity.y !== 0) {
+          // Jump Tilt
+          rotation = 0.08;
+        }
 
         if (this.isAttacking) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-          ctx.fillRect(
-            this.attackBox.position.x,
-            this.attackBox.position.y,
-            this.attackBox.width,
-            this.attackBox.height
-          );
+          // Slash Forward Motion
+          ctx.translate(10, 0);
+          rotation = -0.15;
         }
+
+        ctx.rotate(rotation);
+        ctx.drawImage(this.sprite, 0, yOffset, this.width, this.height);
+
+        // Render Sword Swing Effect during Attack
+        if (this.isAttacking) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.beginPath();
+          ctx.arc(this.width / 2 + 30, this.height / 2, 45, -Math.PI / 4, Math.PI / 4);
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
 
       update() {
@@ -262,7 +367,7 @@
         if (this.facing === 'right') {
           this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
         } else {
-          this.attackBox.position.x = this.position.x - this.attackBox.width;
+          this.attackBox.position.x = this.position.x - this.attackBox.width + 20;
         }
         this.attackBox.position.y = this.position.y + this.attackBox.offset.y;
 
@@ -281,11 +386,11 @@
       }
 
       attack() {
-        if (this.isAttacking) return;
+        if (this.isAttacking || gameOver) return;
         this.isAttacking = true;
         setTimeout(() => {
           this.isAttacking = false;
-        }, 100);
+        }, 150);
       }
 
       takeDamage(amount) {
@@ -293,22 +398,31 @@
         if (this.health < 0) this.health = 0;
         this.healthBar.style.width = this.health + '%';
       }
+
+      reset(xPos) {
+        this.health = 100;
+        this.healthBar.style.width = '100%';
+        this.position.x = xPos;
+        this.position.y = 100;
+        this.velocity = { x: 0, y: 0 };
+        this.isAttacking = false;
+      }
     }
 
     // Instantiate Champions
     const player1 = new Fighter({
       position: { x: 100, y: 100 },
       velocity: { x: 0, y: 0 },
-      color: '#38bdf8',
-      attackBoxOffset: { x: 50, y: 20 },
+      sprite: p1Sprite,
+      attackBoxOffset: { x: 40, y: 20 },
       name: 'Aerus',
       healthBarId: 'p1-health'
     });
 
     const player2 = new Fighter({
-      position: { x: 650, y: 100 },
+      position: { x: 640, y: 100 },
       velocity: { x: 0, y: 0 },
-      color: '#f43f5e',
+      sprite: p2Sprite,
       attackBoxOffset: { x: 0, y: 20 },
       name: 'Rival',
       healthBarId: 'p2-health'
@@ -323,9 +437,12 @@
       ArrowRight: { pressed: false }
     };
 
-    // Mode Toggle Button Logic
+    // UI & Mode Control Elements
     const modeBtn = document.getElementById('mode-toggle');
     const p2Label = document.getElementById('p2-label');
+    const gameOverOverlay = document.getElementById('game-over-overlay');
+    const resultBanner = document.getElementById('result-banner');
+    const restartBtn = document.getElementById('restart-btn');
 
     modeBtn.addEventListener('click', () => {
       isAiMode = !isAiMode;
@@ -340,13 +457,14 @@
 
     // Keyboard Listeners
     window.addEventListener('keydown', (event) => {
+      if (gameOver) return;
       switch (event.key) {
         case 'a': case 'A': keys.a.pressed = true; player1.facing = 'left'; break;
         case 'd': case 'D': keys.d.pressed = true; player1.facing = 'right'; break;
         case 'w': case 'W': if (player1.velocity.y === 0) player1.velocity.y = -14; break;
         case ' ': player1.attack(); break;
 
-        // Player 2 Manual Keys (When AI mode is OFF)
+        // Player 2 Manual Keys
         case 'ArrowLeft': if (!isAiMode) { keys.ArrowLeft.pressed = true; player2.facing = 'left'; } break;
         case 'ArrowRight': if (!isAiMode) { keys.ArrowRight.pressed = true; player2.facing = 'right'; } break;
         case 'ArrowUp': if (!isAiMode && player2.velocity.y === 0) player2.velocity.y = -14; break;
@@ -363,10 +481,10 @@
       }
     });
 
-    // Touch Event Listeners for Mobile
+    // Touch Event Listeners
     function bindTouchButton(btnId, onPress, onRelease) {
       const btn = document.getElementById(btnId);
-      btn.addEventListener('touchstart', (e) => { e.preventDefault(); onPress(); });
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!gameOver) onPress(); });
       btn.addEventListener('touchend', (e) => { e.preventDefault(); if (onRelease) onRelease(); });
     }
 
@@ -377,30 +495,25 @@
 
     // Computer Bot / AI Logic
     function updateComputerAI() {
-      if (!isAiMode || player2.health <= 0) return;
+      if (!isAiMode || player2.health <= 0 || gameOver) return;
 
       const distanceToPlayer = player1.position.x - player2.position.x;
 
-      // Face toward player
       if (distanceToPlayer > 0) {
         player2.facing = 'right';
       } else {
         player2.facing = 'left';
       }
 
-      // Movement Decision
       if (Math.abs(distanceToPlayer) > 60) {
-        // Move towards Player 1
         player2.velocity.x = distanceToPlayer > 0 ? 3.5 : -3.5;
       } else {
-        // Close distance: Attack randomly
         player2.velocity.x = 0;
         if (Math.random() < 0.05) {
           player2.attack();
         }
       }
 
-      // Jump occasionally if Player 1 jumps
       if (player1.position.y < GROUND_Y - 120 && player2.velocity.y === 0 && Math.random() < 0.08) {
         player2.velocity.y = -14;
       }
@@ -416,43 +529,73 @@
       );
     }
 
+    // End Game Handler (Triggers victory.png or defeat.png)
+    function checkGameOver() {
+      if (gameOver) return;
+
+      if (player2.health <= 0) {
+        gameOver = true;
+        resultBanner.src = 'image/victory.png';
+        gameOverOverlay.style.display = 'flex';
+      } else if (player1.health <= 0) {
+        gameOver = true;
+        resultBanner.src = 'image/defeat.png';
+        gameOverOverlay.style.display = 'flex';
+      }
+    }
+
+    // Restart System
+    restartBtn.addEventListener('click', () => {
+      gameOver = false;
+      gameOverOverlay.style.display = 'none';
+      player1.reset(100);
+      player2.reset(640);
+      player2.facing = 'left';
+    });
+
     // Main Game Loop
     function animate() {
       window.requestAnimationFrame(animate);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Arena Stage Ground
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
 
       player1.velocity.x = 0;
       if (!isAiMode) player2.velocity.x = 0;
 
-      // Player 1 Movement
-      if (keys.a.pressed) player1.velocity.x = -5;
-      else if (keys.d.pressed) player1.velocity.x = 5;
+      if (!gameOver) {
+        // Player 1 Movement
+        if (keys.a.pressed) player1.velocity.x = -5;
+        else if (keys.d.pressed) player1.velocity.x = 5;
 
-      // Player 2 Manual Movement (If AI disabled)
-      if (!isAiMode) {
-        if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
-        else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
-      } else {
-        // Update Bot Logic
-        updateComputerAI();
+        // Player 2 Manual Movement / AI
+        if (!isAiMode) {
+          if (keys.ArrowLeft.pressed) player2.velocity.x = -5;
+          else if (keys.ArrowRight.pressed) player2.velocity.x = 5;
+        } else {
+          updateComputerAI();
+        }
       }
 
       player1.update();
       player2.update();
 
-      // Check Hits (P1 -> P2/Bot)
-      if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
-        player1.isAttacking = false;
-        player2.takeDamage(10);
-      }
+      if (!gameOver) {
+        // Check Hits (P1 -> P2)
+        if (rectangularCollision({ rectangle1: player1, rectangle2: player2 }) && player1.isAttacking) {
+          player1.isAttacking = false;
+          player2.takeDamage(10);
+        }
 
-      // Check Hits (P2/Bot -> P1)
-      if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
-        player2.isAttacking = false;
-        player1.takeDamage(10);
+        // Check Hits (P2 -> P1)
+        if (rectangularCollision({ rectangle1: player2, rectangle2: player1 }) && player2.isAttacking) {
+          player2.isAttacking = false;
+          player1.takeDamage(10);
+        }
+
+        checkGameOver();
       }
     }
 
